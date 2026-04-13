@@ -3,462 +3,1206 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gestión de Proyectos</title>
+<title>PMO Subestaciones</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --purple: #7F77DD; --purple-light: #EEEDFE; --purple-dark: #534AB7;
-    --green-light: #EAF3DE; --green: #3B6D11;
-    --amber-light: #FAEEDA; --amber: #854F0B;
-    --red-light: #FCEBEB; --red: #A32D2D;
-    --gray-bg: #F8F7F4; --border: #E5E3DC;
-    --text: #1A1A18; --text-muted: #6B6A64; --text-hint: #9A9991;
-  }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-bg); color: var(--text); min-height: 100vh; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#7F77DD;--pl:#EEEDFE;--pd:#534AB7;
+  --tl:#E1F5EE;--tld:#0F6E56;
+  --al:#FAEEDA;--ad:#854F0B;
+  --rl:#FCEBEB;--rd:#A32D2D;
+  --gl:#EAF3DE;--gd:#3B6D11;
+  --bl:#E6F1FB;--bd:#185FA5;
+  --bg:#F7F6F2;--card:#fff;
+  --border:#E8E6DF;--border2:#D4D1C8;
+  --text:#1A1A18;--muted:#6B6A64;--hint:#9A9991;
+  --sidebar:220px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit}
 
-  /* AUTH */
-  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
-  .auth-card { background: #fff; border: 0.5px solid var(--border); border-radius: 16px; padding: 2rem; width: 100%; max-width: 380px; }
-  .auth-card h1 { font-size: 20px; font-weight: 500; margin-bottom: 6px; }
-  .auth-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
-  .field { margin-bottom: 1rem; }
-  .field label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 5px; }
-  .field input { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; color: var(--text); }
-  .field input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-light); }
-  .btn { width: 100%; padding: 10px; background: var(--purple); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
-  .btn:hover { background: var(--purple-dark); }
-  .btn-secondary { background: transparent; color: var(--text); border: 0.5px solid var(--border); margin-top: 8px; }
-  .btn-secondary:hover { background: var(--gray-bg); }
-  .auth-toggle { text-align: center; margin-top: 1rem; font-size: 13px; color: var(--text-muted); }
-  .auth-toggle a { color: var(--purple); cursor: pointer; text-decoration: none; }
-  .msg { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin-bottom: 1rem; }
-  .msg.error { background: var(--red-light); color: var(--red); }
-  .msg.success { background: var(--green-light); color: var(--green); }
+/* ── AUTH ─────────────────────────────────────────────── */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+.auth-card{background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:2rem;width:100%;max-width:380px}
+.auth-logo{font-size:22px;font-weight:600;color:var(--p);margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:#fff;color:var(--text);font-family:inherit}
+.field textarea{resize:vertical;min-height:72px}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--p);box-shadow:0 0 0 3px var(--pl)}
+.btn-primary{width:100%;padding:10px;background:var(--p);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;transition:background .15s}
+.btn-primary:hover{background:var(--pd)}
+.btn-ghost{background:transparent;border:0.5px solid var(--border);border-radius:8px;padding:7px 14px;font-size:13px;color:var(--text);transition:background .15s}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--rd);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px}
+.btn-danger:hover{background:#791F1F}
+.msg{font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:1rem}
+.msg.err{background:var(--rl);color:var(--rd)}
+.msg.ok{background:var(--gl);color:var(--gd)}
+.link-btn{background:none;border:none;color:var(--p);font-size:13px;cursor:pointer;padding:0;text-decoration:underline}
+.auth-toggle{text-align:center;margin-top:1rem;font-size:13px;color:var(--muted)}
 
-  /* APP LAYOUT */
-  #app-screen { display: none; }
-  .topbar { background: #fff; border-bottom: 0.5px solid var(--border); padding: 0 1.5rem; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
-  .topbar-left { display: flex; align-items: center; gap: 12px; }
-  .logo { font-size: 15px; font-weight: 500; color: var(--text); }
-  .logo span { color: var(--purple); }
-  .user-info { font-size: 13px; color: var(--text-muted); }
-  .logout-btn { font-size: 13px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 6px 10px; border-radius: 6px; }
-  .logout-btn:hover { background: var(--gray-bg); color: var(--text); }
-  .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+/* ── APP LAYOUT ───────────────────────────────────────── */
+#app-screen{display:none;min-height:100vh}
+.layout{display:flex;min-height:100vh}
 
-  /* METRICS */
-  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
-  .metric { background: #fff; border: 0.5px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-  .metric .lbl { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
-  .metric .val { font-size: 24px; font-weight: 500; }
+/* ── SIDEBAR ──────────────────────────────────────────── */
+.sidebar{width:var(--sidebar);background:var(--card);border-right:0.5px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:20}
+.sidebar-logo{padding:1.25rem 1.2rem 1rem;border-bottom:0.5px solid var(--border)}
+.sidebar-logo .name{font-size:14px;font-weight:600;color:var(--text)}
+.sidebar-logo .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.nav-section{padding:.75rem .75rem .25rem;font-size:10px;font-weight:600;color:var(--hint);letter-spacing:.06em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 12px;margin:1px 8px;border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;border:none;background:none;width:calc(100% - 16px);text-align:left}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--pl);color:var(--pd);font-weight:500}
+.nav-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.sidebar-footer{margin-top:auto;padding:1rem;border-top:0.5px solid var(--border)}
+.user-chip{display:flex;align-items:center;gap:9px}
+.user-av{width:32px;height:32px;border-radius:50%;background:var(--pl);color:var(--pd);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0}
+.user-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role{font-size:11px;color:var(--muted)}
+.logout-btn{margin-left:auto;background:none;border:none;font-size:18px;color:var(--hint);cursor:pointer;padding:4px}
+.logout-btn:hover{color:var(--rd)}
 
-  /* SECTIONS */
-  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-  .section-head h2 { font-size: 16px; font-weight: 500; }
-  .add-btn { background: var(--purple); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  .add-btn:hover { background: var(--purple-dark); }
+/* ── MAIN CONTENT ─────────────────────────────────────── */
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--card);border-bottom:0.5px solid var(--border);padding:0 1.5rem;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar-title{font-size:15px;font-weight:500}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.content{padding:1.5rem;flex:1}
 
-  /* PROJECTS */
-  .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 2rem; }
-  .proj-card { background: #fff; border: 0.5px solid var(--border); border-radius: 14px; padding: 1rem 1.25rem; cursor: pointer; transition: border-color 0.15s; }
-  .proj-card:hover { border-color: var(--purple); }
-  .proj-card.active-proj { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-light); }
-  .proj-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-  .proj-name { font-size: 14px; font-weight: 500; }
-  .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
-  .badge.activo { background: var(--purple-light); color: var(--purple-dark); }
-  .badge.pausado { background: var(--amber-light); color: var(--amber); }
-  .badge.completado { background: var(--green-light); color: var(--green); }
-  .proj-client { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
-  .proj-desc { font-size: 12px; color: var(--text-hint); margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .proj-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 0.5px solid var(--border); }
-  .proj-date { font-size: 11px; color: var(--text-hint); }
-  .delete-btn { font-size: 11px; color: var(--text-hint); background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
-  .delete-btn:hover { background: var(--red-light); color: var(--red); }
-  .empty { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 14px; background: #fff; border: 0.5px dashed var(--border); border-radius: 12px; }
+/* ── CARDS & METRICS ──────────────────────────────────── */
+.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.metric-card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:14px 16px}
+.metric-card .lbl{font-size:11px;color:var(--muted);margin-bottom:6px}
+.metric-card .val{font-size:26px;font-weight:500}
+.metric-card .sub{font-size:11px;color:var(--hint);margin-top:3px}
+.card{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem}
+.card-title{font-size:14px;font-weight:500;margin-bottom:1rem}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.section-head h2{font-size:15px;font-weight:500}
 
-  /* TASKS */
-  .tasks-section { background: #fff; border: 0.5px solid var(--border); border-radius: 14px; padding: 1.25rem; }
-  .tasks-section h3 { font-size: 15px; font-weight: 500; margin-bottom: 1rem; }
-  .task-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
-  .task-item:last-child { border-bottom: none; }
-  .task-check { width: 18px; height: 18px; border-radius: 5px; border: 0.5px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; background: #fff; }
-  .task-check.done { background: var(--purple); border-color: var(--purple); color: #fff; }
-  .task-info { flex: 1; }
-  .task-title { font-size: 13px; color: var(--text); }
-  .task-title.done { text-decoration: line-through; color: var(--text-hint); }
-  .task-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .prio { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
-  .prio.alta { background: var(--red-light); color: var(--red); }
-  .prio.media { background: var(--amber-light); color: var(--amber); }
-  .prio.baja { background: var(--green-light); color: var(--green); }
+/* ── TABLE ────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:12px;border:0.5px solid var(--border)}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);border-bottom:0.5px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+td{padding:11px 14px;font-size:13px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:var(--bg)}
 
-  /* MODAL */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: #fff; border-radius: 16px; padding: 1.5rem; width: 100%; max-width: 420px; }
-  .modal h2 { font-size: 17px; font-weight: 500; margin-bottom: 1.25rem; }
-  .modal .field input, .modal .field select, .modal .field textarea { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; background: #fff; color: var(--text); font-family: inherit; }
-  .modal .field textarea { resize: vertical; min-height: 70px; }
-  .modal .field input:focus, .modal .field select:focus, .modal .field textarea:focus { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-light); }
-  .modal-actions { display: flex; gap: 8px; margin-top: 1.25rem; }
-  .modal-actions .btn { flex: 1; }
-  .loading { text-align: center; padding: 2rem; color: var(--text-muted); }
+/* ── BADGES ───────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:20px;white-space:nowrap;font-weight:500}
+.badge.abierto,.badge.activo{background:var(--pl);color:var(--pd)}
+.badge.cerrado,.badge.finalizado,.badge.pagado{background:var(--gl);color:var(--gd)}
+.badge.riesgo,.badge.pendiente{background:var(--rl);color:var(--rd)}
+.badge.pausado,.badge.proceso,.badge.en_proceso{background:var(--al);color:var(--ad)}
+.badge.contrato{background:var(--bl);color:var(--bd)}
+.badge.compra{background:var(--tl);color:var(--tld)}
 
-  @media (max-width: 600px) {
-    .metrics { grid-template-columns: 1fr 1fr; }
-    .topbar { padding: 0 1rem; }
-    .main { padding: 1rem; }
-  }
+/* ── PROGRESS BAR ─────────────────────────────────────── */
+.prog-wrap{display:flex;align-items:center;gap:8px}
+.prog-bar{flex:1;height:5px;background:var(--border);border-radius:4px;overflow:hidden;min-width:60px}
+.prog-fill{height:100%;border-radius:4px;background:var(--p);transition:width .3s}
+.prog-fill.green{background:#639922}
+.prog-fill.amber{background:#BA7517}
+.prog-fill.red{background:var(--rd)}
+.prog-pct{font-size:12px;color:var(--muted);min-width:32px;text-align:right}
+
+/* ── DETAIL TABS ──────────────────────────────────────── */
+.tabs{display:flex;gap:2px;border-bottom:0.5px solid var(--border);margin-bottom:1.5rem}
+.tab-btn{padding:9px 16px;font-size:13px;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-0.5px;transition:all .15s}
+.tab-btn.active{color:var(--p);border-bottom-color:var(--p);font-weight:500}
+.tab-btn:hover{color:var(--text)}
+
+/* ── GRID FORMS ───────────────────────────────────────── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-grid .full{grid-column:1/-1}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--border)}
+
+/* ── MODAL ────────────────────────────────────────────── */
+.modal-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.modal-wrap.open{display:flex}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:1.5rem}
+.modal-lg{max-width:760px}
+.modal h2{font-size:17px;font-weight:500;margin-bottom:1.25rem}
+
+/* ── FILTER BAR ───────────────────────────────────────── */
+.filter-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.filter-bar input,.filter-bar select{padding:7px 10px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;background:#fff;color:var(--text);outline:none}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--p)}
+.filter-bar input{min-width:200px}
+
+/* ── ALERT CARDS ──────────────────────────────────────── */
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px}
+.alert.warn{background:var(--al);color:var(--ad)}
+.alert.info{background:var(--bl);color:var(--bd)}
+.alert.danger{background:var(--rl);color:var(--rd)}
+
+/* ── DETAIL HEADER ────────────────────────────────────── */
+.detail-header{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem}
+.detail-header h1{font-size:18px;font-weight:500;margin-bottom:6px}
+.detail-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.meta-chip{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}
+
+/* ── EMPTY STATE ──────────────────────────────────────── */
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--muted);font-size:14px;border:0.5px dashed var(--border);border-radius:12px}
+
+/* ── TOAST ────────────────────────────────────────────── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* ── BACK BTN ─────────────────────────────────────────── */
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;margin-bottom:1rem}
+.back-btn:hover{color:var(--text)}
+
+/* ── LOADING ──────────────────────────────────────────── */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-state{display:flex;align-items:center;justify-content:center;padding:3rem;color:var(--muted);gap:10px}
+
+/* ── ACTION BTN ROW ───────────────────────────────────── */
+.action-row{display:flex;gap:6px}
+.icon-btn{background:none;border:0.5px solid transparent;border-radius:6px;padding:4px 9px;font-size:12px;color:var(--hint);cursor:pointer;transition:all .15s}
+.icon-btn:hover{background:var(--bg);border-color:var(--border);color:var(--text)}
+.icon-btn.del:hover{background:var(--rl);color:var(--rd)}
+
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .main{margin-left:0}
+  .metric-grid{grid-template-columns:1fr 1fr}
+  .form-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════════════════════════ -->
 <div id="auth-screen">
   <div class="auth-card">
-    <h1>⚡ Gestión de Proyectos</h1>
-    <p id="auth-subtitle">Ingresa a tu cuenta para continuar</p>
+    <div class="auth-logo">⚡ PMO Subestaciones</div>
+    <p class="auth-sub" id="auth-sub">Ingresa a tu cuenta</p>
     <div id="auth-msg"></div>
-    <div class="field">
-      <label>Correo electrónico</label>
-      <input type="email" id="auth-email" placeholder="tu@correo.com">
+
+    <div id="m-login">
+      <div class="field"><label>Correo</label><input type="email" id="l-email" placeholder="tu@correo.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="l-pass" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="doLogin()">Ingresar</button>
+      <div style="text-align:center;margin-top:10px">
+        <button class="link-btn" onclick="showMode('reset')">¿Olvidaste tu contraseña?</button>
+      </div>
+      <div class="auth-toggle">¿No tienes cuenta? <button class="link-btn" onclick="showMode('reg')">Regístrate</button></div>
     </div>
-    <div class="field">
-      <label>Contraseña</label>
-      <input type="password" id="auth-password" placeholder="••••••••">
+
+    <div id="m-reg" style="display:none">
+      <div class="field"><label>Nombre completo</label><input type="text" id="r-name" placeholder="Juan Pérez"></div>
+      <div class="field"><label>Correo</label><input type="email" id="r-email" placeholder="tu@correo.com"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres"></div>
+      <button class="btn-primary" onclick="doRegister()">Crear cuenta</button>
+      <div class="auth-toggle">¿Ya tienes cuenta? <button class="link-btn" onclick="showMode('login')">Inicia sesión</button></div>
     </div>
-    <div id="auth-name-field" class="field" style="display:none">
-      <label>Tu nombre</label>
-      <input type="text" id="auth-name" placeholder="Juan Pérez">
-    </div>
-    <button class="btn" id="auth-submit-btn" onclick="authSubmit()">Ingresar</button>
-    <div class="auth-toggle">
-      <span id="auth-toggle-text">¿No tienes cuenta?</span>
-      <a onclick="toggleAuthMode()"> <span id="auth-toggle-link">Regístrate</span></a>
+
+    <div id="m-reset" style="display:none">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">Ingresa tu correo y te enviaremos un enlace.</p>
+      <div class="field"><label>Correo</label><input type="email" id="rst-email" placeholder="tu@correo.com"></div>
+      <button class="btn-primary" onclick="doReset()">Enviar enlace</button>
+      <div class="auth-toggle"><button class="link-btn" onclick="showMode('login')">← Volver</button></div>
     </div>
   </div>
 </div>
 
-<!-- APP SCREEN -->
+<!-- ═══════════════════════════════════════════════════════
+     APP SCREEN
+═══════════════════════════════════════════════════════ -->
 <div id="app-screen">
-  <div class="topbar">
-    <div class="topbar-left">
-      <div class="logo">⚡ <span>Proyectos</span></div>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <span class="user-info" id="user-display"></span>
-      <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
-    </div>
-  </div>
+  <div class="layout">
 
-  <div class="main">
-    <div class="metrics">
-      <div class="metric"><div class="lbl">Proyectos</div><div class="val" id="m-projects">0</div></div>
-      <div class="metric"><div class="lbl">Tareas activas</div><div class="val" id="m-tasks">0</div></div>
-      <div class="metric"><div class="lbl">Completadas</div><div class="val" id="m-done">0</div></div>
-    </div>
-
-    <div class="section-head">
-      <h2>Proyectos</h2>
-      <button class="add-btn" onclick="openProjectModal()">+ Nuevo proyecto</button>
-    </div>
-    <div id="projects-container" class="projects-grid">
-      <div class="loading">Cargando proyectos...</div>
-    </div>
-
-    <div id="tasks-section" style="display:none">
-      <div class="section-head">
-        <h2 id="tasks-section-title">Tareas</h2>
-        <button class="add-btn" onclick="openTaskModal()">+ Nueva tarea</button>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <div class="name">⚡ PMO Subestaciones</div>
+        <div class="sub">UTCD — ENEE</div>
       </div>
-      <div class="tasks-section">
-        <div id="tasks-container"><div class="loading">Cargando tareas...</div></div>
+      <div style="flex:1;overflow-y:auto;padding-bottom:1rem">
+        <div class="nav-section">Principal</div>
+        <button class="nav-item" onclick="nav('dashboard')"><span class="nav-icon">📊</span>Dashboard</button>
+        <button class="nav-item" onclick="nav('proyectos')"><span class="nav-icon">📁</span>Proyectos</button>
+        <button class="nav-item" onclick="nav('adquisiciones')"><span class="nav-icon">📋</span>Adquisiciones</button>
+        <div class="nav-section">Gestión</div>
+        <button class="nav-item" onclick="nav('actualizaciones')"><span class="nav-icon">📝</span>Actualizaciones</button>
+        <button class="nav-item" onclick="nav('equipo')"><span class="nav-icon">👥</span>Equipo</button>
+      </div>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="user-av" id="sidebar-av">?</div>
+          <div style="flex:1;min-width:0">
+            <div class="user-name" id="sidebar-name">—</div>
+            <div class="user-role" id="sidebar-role">—</div>
+          </div>
+          <button class="logout-btn" onclick="doLogout()" title="Cerrar sesión">⎋</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-title" id="topbar-title">Dashboard</span>
+        <div class="topbar-actions" id="topbar-actions"></div>
+      </div>
+      <div class="content" id="main-content">
+        <div class="loading-state"><span class="spinner"></span> Cargando...</div>
       </div>
     </div>
+
   </div>
 </div>
 
-<!-- PROJECT MODAL -->
-<div class="modal-overlay" id="project-modal">
-  <div class="modal">
-    <h2>Nuevo proyecto</h2>
-    <div class="field"><label>Nombre del proyecto *</label><input type="text" id="p-name" placeholder="Ej: Subestación Norte"></div>
-    <div class="field"><label>Cliente</label><input type="text" id="p-client" placeholder="Ej: ENEE"></div>
-    <div class="field"><label>Descripción</label><textarea id="p-desc" placeholder="Breve descripción del proyecto..."></textarea></div>
-    <div class="field"><label>Fecha límite</label><input type="date" id="p-date"></div>
-    <div class="field"><label>Estado</label>
-      <select id="p-status">
-        <option value="activo">Activo</option>
-        <option value="pausado">Pausado</option>
-        <option value="completado">Completado</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('project-modal')">Cancelar</button>
-      <button class="btn" onclick="saveProject()">Guardar proyecto</button>
-    </div>
-  </div>
-</div>
-
-<!-- TASK MODAL -->
-<div class="modal-overlay" id="task-modal">
-  <div class="modal">
-    <h2>Nueva tarea</h2>
-    <div class="field"><label>Título de la tarea *</label><input type="text" id="t-title" placeholder="Ej: Revisar planos eléctricos"></div>
-    <div class="field"><label>Responsable</label><input type="text" id="t-assigned" placeholder="Ej: Ing. Martínez"></div>
-    <div class="field"><label>Prioridad</label>
-      <select id="t-priority">
-        <option value="alta">Alta</option>
-        <option value="media">Media</option>
-        <option value="baja">Baja</option>
-      </select>
-    </div>
-    <div class="field"><label>Estado</label>
-      <select id="t-status">
-        <option value="pendiente">Pendiente</option>
-        <option value="en progreso">En progreso</option>
-        <option value="completado">Completado</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('task-modal')">Cancelar</button>
-      <button class="btn" onclick="saveTask()">Guardar tarea</button>
-    </div>
-  </div>
-</div>
-
+<!-- MODALS -->
+<div class="modal-wrap" id="modal-proyecto"><div class="modal modal-lg" id="modal-proyecto-body"></div></div>
+<div class="modal-wrap" id="modal-adq"><div class="modal modal-lg" id="modal-adq-body"></div></div>
+<div class="modal-wrap" id="modal-update"><div class="modal" id="modal-update-body"></div></div>
+<div class="modal-wrap" id="modal-adenda"><div class="modal" id="modal-adenda-body"></div></div>
+<div class="modal-wrap" id="modal-pago"><div class="modal" id="modal-pago-body"></div></div>
+<div class="modal-wrap" id="modal-confirm"><div class="modal" id="modal-confirm-body"></div></div>
+</body>
+</html>
 <script>
-const SUPABASE_URL = 'https://sucbihsncxcaytwixbfh.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_xa1LYBqA7oRmLIvea7n1qQ_XjY-wWg9';
-const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+// ═══════════════════════════════════════════════════════
+// CONFIG & STATE
+// ═══════════════════════════════════════════════════════
+const SURL = 'https://sucbihsncxcaytwixbfh.supabase.co';
+const SKEY = 'sb_publishable_xa1LYBqA7oRmLIvea7n1qQ_XjY-wWg9';
+const sb   = supabase.createClient(SURL, SKEY);
 
-let currentUser = null;
-let selectedProjectId = null;
-let isLoginMode = true;
+const app = { user:null, profile:null, view:'dashboard', projectId:null, adqId:null, tab:0 };
 
+const ETAPAS   = ['1-REGISTRO DE PROYECTO','2-DISEÑO/PLANEACIÓN','3-SPC/LICITACIÓN','4-EJECUCIÓN','5-FINALIZADO'];
+const ESTADOS  = ['Abierto','En Riesgo','Pausado','Cerrado'];
+const TIPOS    = ['INFRAESTRUCTURA','ESTRATÉGICO','MEJORA CONTINÚA','SOLICITUDES PRIORITARIAS'];
+const NATURAL  = ['SUBESTACION','REDES','GENERACION','TRANSMISION','ESTRATEGICO'];
+const COMPLEX  = ['1-BÁSICA','2-MODERADA','3-EXTREMA'];
+const NEGOCIOS = ['GENERACIÓN','TRANSMISIÓN','DISTRIBUCIÓN','COORDINACIÓN TÉCNICA','CND'];
+const FONDOS_E = ['ENEE','UTCD'];
+const FONDOS_T = ['Gasto','Inversión'];
+const PROC_T   = ['Licitación pública','Licitación privada','Compra menor','Comparación de precios','Contratación directa'];
+
+// ═══════════════════════════════════════════════════════
+// INIT & AUTH
+// ═══════════════════════════════════════════════════════
 async function init() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    showApp();
-  }
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) { app.user = session.user; await loadProfile(); showApp(); }
 }
 
-function toggleAuthMode() {
-  isLoginMode = !isLoginMode;
-  document.getElementById('auth-subtitle').textContent = isLoginMode ? 'Ingresa a tu cuenta para continuar' : 'Crea tu cuenta nueva';
-  document.getElementById('auth-submit-btn').textContent = isLoginMode ? 'Ingresar' : 'Registrarse';
-  document.getElementById('auth-toggle-text').textContent = isLoginMode ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?';
-  document.getElementById('auth-toggle-link').textContent = isLoginMode ? 'Regístrate' : 'Inicia sesión';
-  document.getElementById('auth-name-field').style.display = isLoginMode ? 'none' : 'block';
+async function loadProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('id', app.user.id).single();
+  app.profile = data;
+  const name = app.profile?.full_name || app.user.email;
+  const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('sidebar-av').textContent   = initials;
+  document.getElementById('sidebar-name').textContent = name;
+  document.getElementById('sidebar-role').textContent = (app.profile?.role || 'pm').toUpperCase();
+}
+
+function showMode(m) {
+  ['login','reg','reset'].forEach(x => document.getElementById('m-'+x).style.display = m===x?'block':'none');
   document.getElementById('auth-msg').innerHTML = '';
+  const t = {login:'Ingresa a tu cuenta',reg:'Crea tu cuenta',reset:'Recuperar contraseña'};
+  document.getElementById('auth-sub').textContent = t[m];
 }
-
-function showAuthMsg(text, type) {
-  document.getElementById('auth-msg').innerHTML = `<div class="msg ${type}">${text}</div>`;
+function authMsg(txt, type='err') {
+  document.getElementById('auth-msg').innerHTML = `<div class="msg ${type}">${txt}</div>`;
 }
-
-async function authSubmit() {
-  const email = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
-  if (!email || !password) return showAuthMsg('Por favor completa todos los campos.', 'error');
-
-  if (isLoginMode) {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return showAuthMsg('Credenciales incorrectas. Verifica tu correo y contraseña.', 'error');
-    currentUser = data.user;
-    showApp();
-  } else {
-    const name = document.getElementById('auth-name').value.trim();
-    if (!name) return showAuthMsg('Por favor ingresa tu nombre.', 'error');
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
-    if (error) return showAuthMsg('Error al crear cuenta: ' + error.message, 'error');
-    showAuthMsg('¡Cuenta creada! Ya puedes ingresar.', 'success');
-    setTimeout(() => { isLoginMode = true; toggleAuthMode(); }, 1500);
-  }
+async function doLogin() {
+  const email = v('l-email'), pass = v('l-pass');
+  if(!email||!pass) return authMsg('Completa todos los campos.');
+  const {data,error} = await sb.auth.signInWithPassword({email,password:pass});
+  if(error) return authMsg('Correo o contraseña incorrectos.');
+  app.user = data.user; await loadProfile(); showApp();
 }
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('auth-screen').style.display !== 'none') authSubmit();
-});
+async function doRegister() {
+  const name=v('r-name'),email=v('r-email'),pass=v('r-pass');
+  if(!name||!email||!pass) return authMsg('Completa todos los campos.');
+  if(pass.length<6) return authMsg('La contraseña debe tener mínimo 6 caracteres.');
+  const {error} = await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}});
+  if(error) return authMsg('Error: '+error.message);
+  authMsg('¡Cuenta creada! Ya puedes ingresar.','ok');
+  setTimeout(()=>showMode('login'),1800);
+}
+async function doReset() {
+  const email = v('rst-email');
+  if(!email) return authMsg('Ingresa tu correo.');
+  const {error} = await sb.auth.resetPasswordForEmail(email);
+  if(error) return authMsg('Error: '+error.message);
+  authMsg('✅ Correo enviado. Revisa tu bandeja.','ok');
+}
+async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
 function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display = 'block';
-  const name = currentUser.user_metadata?.full_name || currentUser.email;
-  document.getElementById('user-display').textContent = name;
-  loadProjects();
+  document.getElementById('app-screen').style.display  = 'block';
+  nav('dashboard');
 }
 
-async function logout() {
-  await sb.auth.signOut();
-  location.reload();
-}
-
-async function loadProjects() {
-  const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: false });
-  const container = document.getElementById('projects-container');
-  if (error || !data || data.length === 0) {
-    container.innerHTML = '<div class="empty">No hay proyectos aún. ¡Crea el primero!</div>';
-    updateMetrics([], []);
-    return;
-  }
-  container.innerHTML = data.map(p => `
-    <div class="proj-card ${selectedProjectId === p.id ? 'active-proj' : ''}" onclick="selectProject('${p.id}', '${escHtml(p.name)}')">
-      <div class="proj-head">
-        <span class="proj-name">${escHtml(p.name)}</span>
-        <span class="badge ${p.status}">${p.status}</span>
-      </div>
-      <div class="proj-client">${p.client ? escHtml(p.client) : 'Sin cliente'}</div>
-      ${p.description ? `<div class="proj-desc">${escHtml(p.description)}</div>` : ''}
-      <div class="proj-footer">
-        <span class="proj-date">${p.due_date ? 'Vence: ' + formatDate(p.due_date) : 'Sin fecha límite'}</span>
-        <button class="delete-btn" onclick="event.stopPropagation(); deleteProject('${p.id}')">Eliminar</button>
-      </div>
-    </div>
-  `).join('');
-  if (selectedProjectId) loadTasks(selectedProjectId);
-  loadMetrics();
-}
-
-async function loadMetrics() {
-  const { data: projects } = await sb.from('projects').select('id');
-  const { data: tasks } = await sb.from('tasks').select('status');
-  const done = tasks ? tasks.filter(t => t.status === 'completado').length : 0;
-  const active = tasks ? tasks.filter(t => t.status !== 'completado').length : 0;
-  document.getElementById('m-projects').textContent = projects ? projects.length : 0;
-  document.getElementById('m-tasks').textContent = active;
-  document.getElementById('m-done').textContent = done;
-}
-
-function updateMetrics(projects, tasks) {
-  document.getElementById('m-projects').textContent = projects.length;
-  document.getElementById('m-tasks').textContent = tasks.filter(t => t.status !== 'completado').length;
-  document.getElementById('m-done').textContent = tasks.filter(t => t.status === 'completado').length;
-}
-
-function selectProject(id, name) {
-  selectedProjectId = id;
-  document.getElementById('tasks-section').style.display = 'block';
-  document.getElementById('tasks-section-title').textContent = 'Tareas — ' + name;
-  loadProjects();
-  loadTasks(id);
-}
-
-async function loadTasks(projectId) {
-  const { data, error } = await sb.from('tasks').select('*').eq('project_id', projectId).order('created_at', { ascending: false });
-  const container = document.getElementById('tasks-container');
-  if (error || !data || data.length === 0) {
-    container.innerHTML = '<div class="empty" style="border:none;padding:1rem 0">No hay tareas en este proyecto. ¡Agrega la primera!</div>';
-    return;
-  }
-  container.innerHTML = data.map(t => `
-    <div class="task-item">
-      <div class="task-check ${t.status === 'completado' ? 'done' : ''}" onclick="toggleTask('${t.id}', '${t.status}')">
-        ${t.status === 'completado' ? '✓' : ''}
-      </div>
-      <div class="task-info">
-        <div class="task-title ${t.status === 'completado' ? 'done' : ''}">${escHtml(t.title)}</div>
-        <div class="task-meta">${t.assigned_to ? 'Responsable: ' + escHtml(t.assigned_to) : 'Sin asignar'} · ${t.status}</div>
-      </div>
-      <span class="prio ${t.priority}">${t.priority}</span>
-      <button class="delete-btn" onclick="deleteTask('${t.id}')">×</button>
-    </div>
-  `).join('');
-}
-
-async function toggleTask(id, currentStatus) {
-  const newStatus = currentStatus === 'completado' ? 'pendiente' : 'completado';
-  await sb.from('tasks').update({ status: newStatus }).eq('id', id);
-  loadTasks(selectedProjectId);
-  loadMetrics();
-}
-
-function openProjectModal() {
-  document.getElementById('p-name').value = '';
-  document.getElementById('p-client').value = '';
-  document.getElementById('p-desc').value = '';
-  document.getElementById('p-date').value = '';
-  document.getElementById('p-status').value = 'activo';
-  document.getElementById('project-modal').classList.add('open');
-}
-
-function openTaskModal() {
-  if (!selectedProjectId) return alert('Primero selecciona un proyecto.');
-  document.getElementById('t-title').value = '';
-  document.getElementById('t-assigned').value = '';
-  document.getElementById('t-priority').value = 'media';
-  document.getElementById('t-status').value = 'pendiente';
-  document.getElementById('task-modal').classList.add('open');
-}
-
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-async function saveProject() {
-  const name = document.getElementById('p-name').value.trim();
-  if (!name) return alert('El nombre del proyecto es obligatorio.');
-  const { error } = await sb.from('projects').insert({
-    name,
-    client: document.getElementById('p-client').value.trim() || null,
-    description: document.getElementById('p-desc').value.trim() || null,
-    due_date: document.getElementById('p-date').value || null,
-    status: document.getElementById('p-status').value
-  });
-  if (error) return alert('Error al guardar: ' + error.message);
-  closeModal('project-modal');
-  loadProjects();
-}
-
-async function saveTask() {
-  const title = document.getElementById('t-title').value.trim();
-  if (!title) return alert('El título de la tarea es obligatorio.');
-  const { error } = await sb.from('tasks').insert({
-    project_id: selectedProjectId,
-    title,
-    assigned_to: document.getElementById('t-assigned').value.trim() || null,
-    priority: document.getElementById('t-priority').value,
-    status: document.getElementById('t-status').value
-  });
-  if (error) return alert('Error al guardar: ' + error.message);
-  closeModal('task-modal');
-  loadTasks(selectedProjectId);
-  loadMetrics();
-}
-
-async function deleteProject(id) {
-  if (!confirm('¿Eliminar este proyecto y todas sus tareas?')) return;
-  await sb.from('projects').delete().eq('id', id);
-  if (selectedProjectId === id) {
-    selectedProjectId = null;
-    document.getElementById('tasks-section').style.display = 'none';
-  }
-  loadProjects();
-}
-
-async function deleteTask(id) {
-  if (!confirm('¿Eliminar esta tarea?')) return;
-  await sb.from('tasks').delete().eq('id', id);
-  loadTasks(selectedProjectId);
-  loadMetrics();
-}
-
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function formatDate(d) {
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
-}
-
-document.querySelectorAll('.modal-overlay').forEach(o => {
-  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+document.addEventListener('keydown', e => {
+  if(e.key!=='Enter') return;
+  if(document.getElementById('m-login').style.display!=='none') doLogin();
+  else if(document.getElementById('m-reg').style.display!=='none') doRegister();
+  else if(document.getElementById('m-reset').style.display!=='none') doReset();
 });
 
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function nav(view, params={}) {
+  app.view = view;
+  Object.assign(app, params);
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase().includes(
+      view==='dashboard'?'dashboard':view==='proyectos'?'proyecto':
+      view==='proyecto_detalle'?'proyecto':view==='adquisiciones'?'adq':
+      view==='actualizaciones'?'actual':view==='equipo'?'equipo':'__'
+    ));
+  });
+  document.getElementById('topbar-actions').innerHTML = '';
+  render();
+}
+
+async function render() {
+  const mc = document.getElementById('main-content');
+  mc.innerHTML = `<div class="loading-state"><span class="spinner"></span> Cargando...</div>`;
+  const t = {
+    dashboard:'Dashboard', proyectos:'Proyectos', proyecto_detalle:'Detalle de proyecto',
+    adquisiciones:'Adquisiciones', actualizaciones:'Actualizaciones', equipo:'Equipo'
+  };
+  document.getElementById('topbar-title').textContent = t[app.view] || app.view;
+  switch(app.view) {
+    case 'dashboard':        await renderDashboard(); break;
+    case 'proyectos':        await renderProyectos(); break;
+    case 'proyecto_detalle': await renderProyectoDetalle(); break;
+    case 'adquisiciones':    await renderAdquisiciones(); break;
+    case 'actualizaciones':  await renderActualizaciones(); break;
+    case 'equipo':           await renderEquipo(); break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+async function renderDashboard() {
+  const [{ data: projs }, { data: adqs }, { data: updates }] = await Promise.all([
+    sb.from('proyectos').select('*'),
+    sb.from('adquisiciones').select('*'),
+    sb.from('actualizaciones').select('*').order('fecha',{ascending:false}).limit(200),
+  ]);
+  const ps = projs||[], as = adqs||[], us = updates||[];
+  const abiertos   = ps.filter(p=>p.estado_general==='Abierto').length;
+  const riesgo     = ps.filter(p=>p.estado_general==='En Riesgo').length;
+  const cerrados   = ps.filter(p=>p.estado_general==='Cerrado').length;
+  const totalInv   = ps.reduce((s,p)=>s+(p.inversion_usd||0),0);
+
+  // Proyectos sin actualización en >7 días
+  const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
+  const recentProjIds = new Set(us.filter(u=>new Date(u.fecha)>=sevenDaysAgo).map(u=>u.proyecto_id));
+  const stale = ps.filter(p=>p.estado_general==='Abierto'&&!recentProjIds.has(p.id));
+
+  // Adquisiciones con pagos pendientes
+  const pendAdqs = as.filter(a=>a.estado==='activo');
+
+  const btns = document.getElementById('topbar-actions');
+  btns.innerHTML = `<button class="btn-ghost" onclick="nav('proyectos')">Ver todos los proyectos →</button>`;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="lbl">Proyectos activos</div>
+        <div class="val" style="color:var(--p)">${abiertos}</div>
+        <div class="sub">${riesgo} en riesgo · ${cerrados} cerrados</div>
+      </div>
+      <div class="metric-card">
+        <div class="lbl">Inversión total USD</div>
+        <div class="val">$${fmtNum(totalInv)}</div>
+        <div class="sub">${ps.length} proyectos</div>
+      </div>
+      <div class="metric-card">
+        <div class="lbl">Sin actualizar (>7 días)</div>
+        <div class="val" style="color:${stale.length?'var(--rd)':'var(--gd)'}">${stale.length}</div>
+        <div class="sub">de ${abiertos} abiertos</div>
+      </div>
+      <div class="metric-card">
+        <div class="lbl">Adquisiciones activas</div>
+        <div class="val">${pendAdqs.length}</div>
+        <div class="sub">$${fmtNum(as.reduce((s,a)=>s+(a.presupuesto||0),0))} presupuestado</div>
+      </div>
+    </div>
+
+    ${stale.length ? `
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-title" style="color:var(--rd)">⚠️ Proyectos sin actualizar esta semana</div>
+      ${stale.slice(0,5).map(p=>`
+        <div class="alert warn" style="cursor:pointer" onclick="nav('proyecto_detalle',{projectId:'${p.id}'})">
+          <span>📁</span>
+          <div>
+            <strong>${esc(p.nombre)}</strong>
+            <div style="font-size:11px;margin-top:2px">${p.pm_id||'Sin PM asignado'} · ${p.estado_proyecto||''}</div>
+          </div>
+        </div>
+      `).join('')}
+      ${stale.length>5?`<div style="font-size:12px;color:var(--muted);margin-top:4px">...y ${stale.length-5} más</div>`:''}
+    </div>` : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+      <div class="card">
+        <div class="card-title">Estado de proyectos</div>
+        ${renderEstadoList(ps)}
+      </div>
+      <div class="card">
+        <div class="card-title">Últimas actualizaciones</div>
+        ${us.slice(0,6).map(u=>`
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--border)">
+            <div>
+              <div style="font-size:13px">${esc(ps.find(p=>p.id===u.proyecto_id)?.nombre||'—').substring(0,40)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(u.notas||'Sin notas').substring(0,60)}</div>
+            </div>
+            <span style="font-size:11px;color:var(--hint);white-space:nowrap;margin-left:8px">${fmtDate(u.fecha)}</span>
+          </div>
+        `).join('')||'<div class="empty" style="border:none">Sin actualizaciones aún</div>'}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem">
+      <div class="card-title">Avance por tipo de proyecto</div>
+      ${renderAvancePorTipo(ps)}
+    </div>
+  `;
+}
+
+function renderEstadoList(ps) {
+  const grupos = {};
+  ps.forEach(p=>{ const k=p.estado_general||'Sin estado'; grupos[k]=(grupos[k]||0)+1; });
+  return Object.entries(grupos).map(([k,n])=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge ${k.toLowerCase().replace(' ','')}">${k}</span>
+      </div>
+      <span style="font-size:14px;font-weight:500">${n}</span>
+    </div>
+  `).join('')||'<div class="empty" style="border:none">Sin proyectos</div>';
+}
+
+function renderAvancePorTipo(ps) {
+  const grupos = {};
+  ps.forEach(p=>{ const k=p.tipo_proyecto||'Sin tipo'; if(!grupos[k]) grupos[k]=[]; grupos[k].push(p); });
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem">
+    ${Object.entries(grupos).map(([k,arr])=>{
+      const avg = arr.length ? Math.round(arr.reduce((s,p)=>s+(p.pct_ejecucion_obra||0),0)/arr.length) : 0;
+      return `<div style="padding:10px;background:var(--bg);border-radius:8px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${k}</div>
+        <div style="font-size:11px;color:var(--hint);margin-bottom:6px">${arr.length} proyecto${arr.length!==1?'s':''}</div>
+        <div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${avg>=80?'green':avg>=40?'':''}" style="width:${avg}%"></div></div><span class="prog-pct">${avg}%</span></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// PROYECTOS — LIST
+// ═══════════════════════════════════════════════════════
+async function renderProyectos() {
+  const { data:projs } = await sb.from('proyectos').select('*, profiles!proyectos_pm_id_fkey(full_name)').order('created_at',{ascending:false});
+  const ps = projs||[];
+
+  document.getElementById('topbar-actions').innerHTML =
+    `<button class="btn-primary" onclick="openProyectoForm()">+ Nuevo proyecto</button>`;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="filter-bar">
+      <input type="text" id="f-search" placeholder="🔍 Buscar proyecto..." oninput="filterProyectos()" style="flex:1">
+      <select id="f-estado" onchange="filterProyectos()">
+        <option value="">Todos los estados</option>
+        ${ESTADOS.map(e=>`<option>${e}</option>`).join('')}
+      </select>
+      <select id="f-tipo" onchange="filterProyectos()">
+        <option value="">Todos los tipos</option>
+        ${TIPOS.map(t=>`<option>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-proyectos">
+        <thead><tr>
+          <th>Código</th><th style="min-width:220px">Nombre</th>
+          <th>PM</th><th>Etapa</th><th>Estado</th>
+          <th>% Obra</th><th>% Financiero</th>
+          <th>Inversión USD</th><th></th>
+        </tr></thead>
+        <tbody id="tbl-body">
+          ${renderProyectosRows(ps)}
+        </tbody>
+      </table>
+    </div>
+  `;
+  window._proyectosData = ps;
+}
+
+function renderProyectosRows(ps) {
+  if(!ps.length) return `<tr><td colspan="9"><div class="empty">Sin proyectos. Crea el primero.</div></td></tr>`;
+  return ps.map(p=>{
+    const pct = p.pct_ejecucion_obra||0;
+    const pctF = p.pct_avance_financiero||0;
+    const color = pct>=80?'green':pct>=40?'':'amber';
+    const pm = p.profiles?.full_name || '—';
+    return `<tr class="clickable" onclick="nav('proyecto_detalle',{projectId:'${p.id}'})">
+      <td style="color:var(--muted);font-size:12px">${esc(p.codigo||'—')}</td>
+      <td><strong style="font-size:13px">${esc(p.nombre)}</strong>
+        ${p.departamento?`<div style="font-size:11px;color:var(--muted)">${esc(p.departamento)}${p.municipio?', '+esc(p.municipio):''}</div>`:''}
+      </td>
+      <td style="font-size:12px">${esc(pm)}</td>
+      <td><span style="font-size:11px;color:var(--muted)">${esc(p.estado_proyecto||'—')}</span></td>
+      <td><span class="badge ${(p.estado_general||'').toLowerCase().replace(' ','')}">${esc(p.estado_general||'—')}</span></td>
+      <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${color}" style="width:${pct}%"></div></div><span class="prog-pct">${pct}%</span></div></td>
+      <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill" style="width:${pctF}%;background:var(--tld)"></div></div><span class="prog-pct">${pctF}%</span></div></td>
+      <td style="font-size:12px;text-align:right">$${fmtNum(p.inversion_usd||0)}</td>
+      <td class="action-row" onclick="event.stopPropagation()">
+        <button class="icon-btn" onclick="openProyectoForm('${p.id}')">✏️</button>
+        <button class="icon-btn del" onclick="confirmDelete('proyecto','${p.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterProyectos() {
+  const search = v('f-search').toLowerCase();
+  const estado = v('f-estado');
+  const tipo   = v('f-tipo');
+  const filtered = (window._proyectosData||[]).filter(p => {
+    const matchSearch = !search || p.nombre.toLowerCase().includes(search) ||
+      (p.codigo||'').toLowerCase().includes(search) || (p.municipio||'').toLowerCase().includes(search);
+    const matchEstado = !estado || p.estado_general === estado;
+    const matchTipo   = !tipo   || p.tipo_proyecto  === tipo;
+    return matchSearch && matchEstado && matchTipo;
+  });
+  document.getElementById('tbl-body').innerHTML = renderProyectosRows(filtered);
+}
+
+// ═══════════════════════════════════════════════════════
+// PROYECTO — DETAIL
+// ═══════════════════════════════════════════════════════
+async function renderProyectoDetalle() {
+  const id = app.projectId;
+  const [{ data:p }, { data:updates }, { data:adqLinks }] = await Promise.all([
+    sb.from('proyectos').select('*, profiles!proyectos_pm_id_fkey(full_name), portafolios(nombre), programas(nombre)').eq('id',id).single(),
+    sb.from('actualizaciones').select('*, profiles(full_name)').eq('proyecto_id',id).order('fecha',{ascending:false}),
+    sb.from('proyecto_adquisicion').select('adquisicion_id, adquisiciones(*)').eq('proyecto_id',id),
+  ]);
+  if(!p) return;
+  document.getElementById('topbar-title').textContent = p.nombre.substring(0,50);
+  document.getElementById('topbar-actions').innerHTML = `
+    <button class="btn-ghost" onclick="openUpdateModal('${id}')">+ Actualización</button>
+    <button class="btn-primary" onclick="openProyectoForm('${id}')">✏️ Editar</button>
+  `;
+
+  const adqs = (adqLinks||[]).map(l=>l.adquisiciones).filter(Boolean);
+  const tabs = ['Información','Avances','Adquisiciones'];
+
+  document.getElementById('main-content').innerHTML = `
+    <button class="back-btn" onclick="nav('proyectos')">← Volver a proyectos</button>
+    <div class="detail-header">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <h1>${esc(p.nombre)}</h1>
+          <div class="detail-meta">
+            <span class="meta-chip">📋 ${esc(p.codigo||'Sin código')}</span>
+            <span class="meta-chip">👤 ${esc(p.profiles?.full_name||'Sin PM')}</span>
+            <span class="meta-chip">📁 ${esc(p.portafolios?.nombre||'Sin portafolio')}</span>
+            ${p.programas?.nombre?`<span class="meta-chip">🗂 ${esc(p.programas.nombre)}</span>`:''}
+            ${p.departamento?`<span class="meta-chip">📍 ${esc(p.departamento)}, ${esc(p.municipio||'')}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge ${(p.estado_general||'').toLowerCase().replace(' ','')}">${esc(p.estado_general||'—')}</span>
+          <span style="font-size:12px;color:var(--muted)">${esc(p.estado_proyecto||'')}</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem">
+        ${renderMiniProg('% Ejecución obra',p.pct_ejecucion_obra||0,'var(--p)')}
+        ${renderMiniProg('% Avance proyecto',p.pct_avance_proyecto||0,'var(--tld)')}
+        ${renderMiniProg('% Avance financiero',p.pct_avance_financiero||0,'var(--gd)')}
+      </div>
+    </div>
+
+    <div class="tabs">
+      ${tabs.map((t,i)=>`<button class="tab-btn ${app.tab===i?'active':''}" onclick="switchTab(${i})">${t}</button>`).join('')}
+    </div>
+    <div id="tab-content">${renderTab(p, updates||[], adqs)}</div>
+  `;
+}
+
+function renderMiniProg(label, pct, color) {
+  return `<div style="background:var(--bg);border-radius:8px;padding:10px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${label}</div>
+    <div style="font-size:18px;font-weight:500;margin-bottom:4px">${Math.round(pct)}%</div>
+    <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+  </div>`;
+}
+
+function switchTab(i) {
+  app.tab = i;
+  document.querySelectorAll('.tab-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+  // Re-render tab content only
+  const el = document.getElementById('tab-content');
+  if(el) el.innerHTML = ''; // triggers re-render from cache
+  nav('proyecto_detalle', {projectId: app.projectId});
+}
+
+function renderTab(p, updates, adqs) {
+  switch(app.tab) {
+    case 0: return renderTabInfo(p);
+    case 1: return renderTabUpdates(p, updates);
+    case 2: return renderTabAdqs(p, adqs);
+    default: return '';
+  }
+}
+
+function renderTabInfo(p) {
+  const row = (label,val) => val ? `<tr><td style="color:var(--muted);font-size:12px;padding:8px 0;width:40%;vertical-align:top">${label}</td><td style="font-size:13px;padding:8px 0">${val}</td></tr>` : '';
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+    <div class="card">
+      <div class="card-title">Información general</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${row('Unidad de negocio',esc(p.unidad_negocio))}
+        ${row('Tipo de proyecto',esc(p.tipo_proyecto))}
+        ${row('Naturaleza',esc(p.naturaleza))}
+        ${row('Complejidad',esc(p.complejidad))}
+        ${row('Fondos',esc(p.fondos))}
+        ${row('Línea presupuestaria',esc(p.linea_presupuestaria))}
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Financiero</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${row('Inversión USD','$'+fmtNum(p.inversion_usd||0))}
+        ${row('Inversión HNL','L '+fmtNum(p.inversion_hnl||0))}
+        ${row('Ejecutado HNL','L '+fmtNum(p.ejecutado_hnl||0))}
+        ${row('Observación',esc(p.obs_presupuesto))}
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Cronograma</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${row('Inicio planificado',fmtDate(p.fecha_inicio_planificada))}
+        ${row('Fin planificado',fmtDate(p.fecha_fin_planificada))}
+        ${row('Inicio real',fmtDate(p.fecha_inicio_real))}
+        ${row('Fin real',fmtDate(p.fecha_fin_real))}
+        ${row('Puesta en marcha',fmtDate(p.fecha_puesta_marcha))}
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Ubicación</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${row('Departamento',esc(p.departamento))}
+        ${row('Municipio',esc(p.municipio))}
+        ${row('Dirección',esc(p.direccion))}
+        ${row('Zona ENEE',esc(p.zona_enee))}
+        ${row('Sector UTCD',esc(p.sector_utcd))}
+        ${p.lat&&p.lon?row('Coordenadas',`${p.lat}, ${p.lon}`):''}
+      </table>
+    </div>
+    ${p.descripcion||p.alcance||p.objetivo?`
+    <div class="card full" style="grid-column:1/-1">
+      <div class="card-title">Descripción del proyecto</div>
+      ${p.descripcion?`<p style="font-size:13px;margin-bottom:10px;color:var(--muted)">${esc(p.descripcion)}</p>`:''}
+      ${p.alcance?`<div style="font-size:12px;font-weight:500;margin-bottom:4px">Alcance</div><p style="font-size:13px;margin-bottom:10px;color:var(--muted)">${esc(p.alcance)}</p>`:''}
+      ${p.objetivo?`<div style="font-size:12px;font-weight:500;margin-bottom:4px">Objetivo</div><p style="font-size:13px;color:var(--muted)">${esc(p.objetivo)}</p>`:''}
+    </div>`:''}
+  </div>`;
+}
+
+function renderTabUpdates(p, updates) {
+  return `
+    <div class="section-head">
+      <h2>Historial de actualizaciones</h2>
+      <button class="btn-primary" onclick="openUpdateModal('${p.id}')">+ Nueva actualización</button>
+    </div>
+    ${!updates.length ? `<div class="empty">Sin actualizaciones. Agrega la primera.</div>` :
+    `<div class="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>PM</th><th>% Obra</th><th>% Proyecto</th><th>% Financiero</th><th>Ejecutado HNL</th><th>Notas</th><th></th></tr></thead>
+      <tbody>
+        ${updates.map(u=>`<tr>
+          <td style="font-size:12px;white-space:nowrap">${fmtDate(u.fecha)}</td>
+          <td style="font-size:12px">${esc(u.profiles?.full_name||'—')}</td>
+          <td>${u.pct_obra??'—'}%</td><td>${u.pct_proyecto??'—'}%</td><td>${u.pct_financiero??'—'}%</td>
+          <td style="text-align:right">L ${fmtNum(u.ejecutado_hnl||0)}</td>
+          <td style="font-size:12px;color:var(--muted);max-width:200px">${esc((u.notas||'').substring(0,80))}</td>
+          <td><button class="icon-btn del" onclick="deleteRecord('actualizaciones','${u.id}','proyecto_detalle')">🗑</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+}
+
+function renderTabAdqs(p, adqs) {
+  return `
+    <div class="section-head">
+      <h2>Adquisiciones</h2>
+      <button class="btn-primary" onclick="openAdqForm(null,'${p.id}')">+ Nueva adquisición</button>
+    </div>
+    ${!adqs.length ? `<div class="empty">Sin adquisiciones vinculadas.</div>` :
+    `<div class="table-wrap"><table>
+      <thead><tr><th>Nombre</th><th>Tipo</th><th>Fondo</th><th>Presupuesto</th><th>Ejecutado</th><th>SOLPED</th><th>Contrato</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        ${adqs.map(a=>`<tr>
+          <td><strong style="font-size:13px">${esc(a.nombre)}</strong><div style="font-size:11px;color:var(--muted)">${esc(a.descripcion||'').substring(0,50)}</div></td>
+          <td><span class="badge ${a.tipo==='contrato'?'contrato':'compra'}">${a.tipo==='contrato'?'Contrato':'Compra directa'}</span></td>
+          <td style="font-size:12px">${a.fondo_entidad||'—'} ${a.fondo_tipo||''}</td>
+          <td style="text-align:right;font-size:12px">$${fmtNum(a.presupuesto||0)}</td>
+          <td style="text-align:right;font-size:12px">$${fmtNum(a.ejecutado||0)}</td>
+          <td style="font-size:12px">${esc(a.solped_numero||'—')}</td>
+          <td style="font-size:12px">${esc(a.contrato_consecutivo||'—')}</td>
+          <td><span class="badge ${a.estado||'activo'}">${a.estado||'activo'}</span></td>
+          <td class="action-row">
+            <button class="icon-btn" onclick="openAdqForm('${a.id}','${p.id}')">✏️</button>
+            <button class="icon-btn del" onclick="unlinkAdq('${p.id}','${a.id}')">🔗</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+// PROYECTO — FORM (create / edit)
+// ═══════════════════════════════════════════════════════
+async function openProyectoForm(id=null) {
+  let p = {};
+  if(id) { const {data} = await sb.from('proyectos').select('*').eq('id',id).single(); p = data||{}; }
+  const [{ data:portafolios },{ data:programas },{ data:pms }] = await Promise.all([
+    sb.from('portafolios').select('id,nombre').order('nombre'),
+    sb.from('programas').select('id,nombre').order('nombre'),
+    sb.from('profiles').select('id,full_name').order('full_name'),
+  ]);
+  const sel = (name,val,opts) => `<select id="pf-${name}">${opts.map(o=>`<option value="${esc(typeof o==='string'?o:o.id)}" ${(typeof o==='string'?o:o.id)===val?'selected':''}>${esc(typeof o==='string'?o:o.nombre||o.full_name)}</option>`).join('')}</select>`;
+  const inp = (name,val,type='text',ph='') => `<input type="${type}" id="pf-${name}" value="${esc(val||'')}" placeholder="${ph}">`;
+  const selOpt = (name,val,arr) => `<select id="pf-${name}"><option value="">—</option>${arr.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+
+  document.getElementById('modal-proyecto-body').innerHTML = `
+    <h2>${id?'Editar proyecto':'Nuevo proyecto'}</h2>
+    <div class="form-grid">
+      <div class="field full"><label>Nombre del proyecto *</label>${inp('nombre',p.nombre,'text','Ej: Ampliación SE Norte')}</div>
+      <div class="field"><label>Código</label>${inp('codigo',p.codigo,'text','P-001-00')}</div>
+      <div class="field"><label>Estado general</label>${selOpt('estado_general',p.estado_general,ESTADOS)}</div>
+      <div class="field"><label>Etapa del proyecto</label>${selOpt('estado_proyecto',p.estado_proyecto,ETAPAS)}</div>
+      <div class="field"><label>Tipo de proyecto</label>${selOpt('tipo_proyecto',p.tipo_proyecto,TIPOS)}</div>
+      <div class="field"><label>Naturaleza</label>${selOpt('naturaleza',p.naturaleza,NATURAL)}</div>
+      <div class="field"><label>Complejidad</label>${selOpt('complejidad',p.complejidad,COMPLEX)}</div>
+      <div class="field"><label>Unidad de negocio</label>${selOpt('unidad_negocio',p.unidad_negocio,NEGOCIOS)}</div>
+      <div class="field"><label>PM responsable</label><select id="pf-pm_id"><option value="">—</option>${(pms||[]).map(u=>`<option value="${u.id}" ${u.id===p.pm_id?'selected':''}>${esc(u.full_name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Portafolio</label><select id="pf-portafolio_id"><option value="">—</option>${(portafolios||[]).map(po=>`<option value="${po.id}" ${po.id===p.portafolio_id?'selected':''}>${esc(po.nombre)}</option>`).join('')}</select></div>
+      <div class="field"><label>Programa</label><select id="pf-programa_id"><option value="">—</option>${(programas||[]).map(pr=>`<option value="${pr.id}" ${pr.id===p.programa_id?'selected':''}>${esc(pr.nombre)}</option>`).join('')}</select></div>
+      <div class="field"><label>Fondos</label>${inp('fondos',p.fondos,'text','BID, ENEE-Inversión...')}</div>
+
+      <div class="field"><label>Fecha inicio planificada</label>${inp('fecha_inicio_planificada',p.fecha_inicio_planificada?p.fecha_inicio_planificada.substring(0,10):'','date')}</div>
+      <div class="field"><label>Fecha fin planificada</label>${inp('fecha_fin_planificada',p.fecha_fin_planificada?p.fecha_fin_planificada.substring(0,10):'','date')}</div>
+      <div class="field"><label>Fecha inicio real</label>${inp('fecha_inicio_real',p.fecha_inicio_real?p.fecha_inicio_real.substring(0,10):'','date')}</div>
+      <div class="field"><label>Fecha fin real</label>${inp('fecha_fin_real',p.fecha_fin_real?p.fecha_fin_real.substring(0,10):'','date')}</div>
+
+      <div class="field"><label>Inversión USD</label>${inp('inversion_usd',p.inversion_usd,'number','0')}</div>
+      <div class="field"><label>Inversión HNL</label>${inp('inversion_hnl',p.inversion_hnl,'number','0')}</div>
+      <div class="field"><label>% Ejecución obra</label>${inp('pct_ejecucion_obra',p.pct_ejecucion_obra,'number','0')}</div>
+      <div class="field"><label>% Avance proyecto</label>${inp('pct_avance_proyecto',p.pct_avance_proyecto,'number','0')}</div>
+      <div class="field"><label>% Avance financiero</label>${inp('pct_avance_financiero',p.pct_avance_financiero,'number','0')}</div>
+      <div class="field"><label>Ejecutado HNL</label>${inp('ejecutado_hnl',p.ejecutado_hnl,'number','0')}</div>
+
+      <div class="field"><label>Departamento</label>${inp('departamento',p.departamento,'text','Ej: Francisco Morazán')}</div>
+      <div class="field"><label>Municipio</label>${inp('municipio',p.municipio,'text','Ej: Tegucigalpa')}</div>
+      <div class="field"><label>Zona ENEE</label>${inp('zona_enee',p.zona_enee)}</div>
+      <div class="field"><label>Sector UTCD</label>${inp('sector_utcd',p.sector_utcd)}</div>
+      <div class="field"><label>Latitud</label>${inp('lat',p.lat,'number')}</div>
+      <div class="field"><label>Longitud</label>${inp('lon',p.lon,'number')}</div>
+      <div class="field"><label>Circuitos asociados</label>${inp('circuitos_asociados',p.circuitos_asociados)}</div>
+      <div class="field"><label>N° beneficiados</label>${inp('nro_beneficiados',p.nro_beneficiados,'number')}</div>
+
+      <div class="field full"><label>Descripción</label><textarea id="pf-descripcion">${esc(p.descripcion||'')}</textarea></div>
+      <div class="field full"><label>Alcance</label><textarea id="pf-alcance">${esc(p.alcance||'')}</textarea></div>
+      <div class="field full"><label>Objetivo</label><textarea id="pf-objetivo">${esc(p.objetivo||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-proyecto')">Cancelar</button>
+      <button class="btn-primary" onclick="saveProyecto('${id||''}')">Guardar proyecto</button>
+    </div>
+  `;
+  openM('modal-proyecto');
+}
+
+async function saveProyecto(id='') {
+  const nombre = v('pf-nombre');
+  if(!nombre.trim()) return toast('El nombre del proyecto es obligatorio.', true);
+  const payload = {
+    nombre, codigo:v('pf-codigo'), estado_general:v('pf-estado_general'), estado_proyecto:v('pf-estado_proyecto'),
+    tipo_proyecto:v('pf-tipo_proyecto'), naturaleza:v('pf-naturaleza'), complejidad:v('pf-complejidad'),
+    unidad_negocio:v('pf-unidad_negocio'), fondos:v('pf-fondos'),
+    pm_id:v('pf-pm_id')||null, portafolio_id:v('pf-portafolio_id')||null, programa_id:v('pf-programa_id')||null,
+    fecha_inicio_planificada:v('pf-fecha_inicio_planificada')||null, fecha_fin_planificada:v('pf-fecha_fin_planificada')||null,
+    fecha_inicio_real:v('pf-fecha_inicio_real')||null, fecha_fin_real:v('pf-fecha_fin_real')||null,
+    inversion_usd:numv('pf-inversion_usd'), inversion_hnl:numv('pf-inversion_hnl'),
+    pct_ejecucion_obra:numv('pf-pct_ejecucion_obra'), pct_avance_proyecto:numv('pf-pct_avance_proyecto'),
+    pct_avance_financiero:numv('pf-pct_avance_financiero'), ejecutado_hnl:numv('pf-ejecutado_hnl'),
+    departamento:v('pf-departamento'), municipio:v('pf-municipio'), zona_enee:v('pf-zona_enee'),
+    sector_utcd:v('pf-sector_utcd'), lat:numv('pf-lat')||null, lon:numv('pf-lon')||null,
+    circuitos_asociados:v('pf-circuitos_asociados'), nro_beneficiados:numv('pf-nro_beneficiados')||null,
+    descripcion:v('pf-descripcion'), alcance:v('pf-alcance'), objetivo:v('pf-objetivo'),
+    updated_at: new Date().toISOString(),
+  };
+  let error;
+  if(id) { ({error}=await sb.from('proyectos').update(payload).eq('id',id)); }
+  else   { ({error}=await sb.from('proyectos').insert(payload)); }
+  if(error) return toast('Error: '+error.message, true);
+  closeM('modal-proyecto');
+  toast(id?'Proyecto actualizado.':'Proyecto creado.');
+  if(id) nav('proyecto_detalle',{projectId:id});
+  else nav('proyectos');
+}
+
+// ═══════════════════════════════════════════════════════
+// ADQUISICIONES — LIST & FORM
+// ═══════════════════════════════════════════════════════
+async function renderAdquisiciones() {
+  const { data:adqs } = await sb.from('adquisiciones').select('*, proyecto_adquisicion(proyecto_id, proyectos(nombre))').order('created_at',{ascending:false});
+  const as = adqs||[];
+  document.getElementById('topbar-actions').innerHTML = `<button class="btn-primary" onclick="openAdqForm()">+ Nueva adquisición</button>`;
+  document.getElementById('main-content').innerHTML = `
+    <div class="filter-bar">
+      <input type="text" id="fa-search" placeholder="🔍 Buscar..." oninput="filterAdqs()" style="flex:1">
+      <select id="fa-tipo" onchange="filterAdqs()">
+        <option value="">Todos los tipos</option>
+        <option>contrato</option><option>compra_directa</option>
+      </select>
+      <select id="fa-fondo" onchange="filterAdqs()">
+        <option value="">Todos los fondos</option>
+        <option>ENEE</option><option>UTCD</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-adqs">
+        <thead><tr><th>Nombre</th><th>Tipo</th><th>Fondo</th><th>SOLPED</th><th>Contrato</th><th>Empresa</th><th>Presupuesto</th><th>Ejecutado</th><th>Estado</th><th>Proyectos</th><th></th></tr></thead>
+        <tbody id="tbl-adqs-body">${renderAdqRows(as)}</tbody>
+      </table>
+    </div>
+  `;
+  window._adqsData = as;
+}
+
+function renderAdqRows(as) {
+  if(!as.length) return `<tr><td colspan="11"><div class="empty">Sin adquisiciones.</div></td></tr>`;
+  return as.map(a=>{
+    const proyNombres = (a.proyecto_adquisicion||[]).map(l=>l.proyectos?.nombre).filter(Boolean);
+    return `<tr>
+      <td><strong style="font-size:13px">${esc(a.nombre)}</strong><div style="font-size:11px;color:var(--muted)">${esc((a.descripcion||'').substring(0,40))}</div></td>
+      <td><span class="badge ${a.tipo==='contrato'?'contrato':'compra'}">${a.tipo==='contrato'?'Contrato':'Compra directa'}</span></td>
+      <td style="font-size:12px">${a.fondo_entidad||'—'}<br><span style="color:var(--muted)">${a.fondo_tipo||''}</span></td>
+      <td style="font-size:12px">${esc(a.solped_numero||'—')}</td>
+      <td style="font-size:12px">${esc(a.contrato_consecutivo||'—')}</td>
+      <td style="font-size:12px">${esc(a.contrato_empresa||'—')}</td>
+      <td style="text-align:right;font-size:12px">$${fmtNum(a.presupuesto||0)}</td>
+      <td style="text-align:right;font-size:12px">$${fmtNum(a.ejecutado||0)}</td>
+      <td><span class="badge ${a.estado||'activo'}">${a.estado||'activo'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${proyNombres.slice(0,2).map(n=>n.substring(0,20)).join(', ')||'—'}</td>
+      <td class="action-row">
+        <button class="icon-btn" onclick="openAdqForm('${a.id}')">✏️</button>
+        <button class="icon-btn del" onclick="confirmDelete('adquisiciones','${a.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAdqs() {
+  const s = v('fa-search').toLowerCase(), t = v('fa-tipo'), f = v('fa-fondo');
+  const filtered = (window._adqsData||[]).filter(a=>
+    (!s||(a.nombre||'').toLowerCase().includes(s)||(a.contrato_empresa||'').toLowerCase().includes(s))&&
+    (!t||a.tipo===t)&&(!f||a.fondo_entidad===f));
+  document.getElementById('tbl-adqs-body').innerHTML = renderAdqRows(filtered);
+}
+
+async function openAdqForm(id=null, proyId=null) {
+  let a = {};
+  if(id) { const {data}=await sb.from('adquisiciones').select('*').eq('id',id).single(); a=data||{}; }
+  const inp = (name,val,type='text',ph='') => `<input type="${type}" id="af-${name}" value="${esc(val||'')}" placeholder="${ph}">`;
+  const selOpt = (name,val,arr,ph='—') => `<select id="af-${name}"><option value="">${ph}</option>${arr.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+  const { data: proyects } = await sb.from('proyectos').select('id,nombre').order('nombre');
+
+  document.getElementById('modal-adq-body').innerHTML = `
+    <h2>${id?'Editar adquisición':'Nueva adquisición'}</h2>
+    <div class="form-grid">
+      <div class="field full"><label>Nombre / Descripción corta *</label>${inp('nombre',a.nombre,'text','Ej: Suministro transformadores SE Norte')}</div>
+      <div class="field full"><label>Descripción detallada</label><textarea id="af-descripcion">${esc(a.descripcion||'')}</textarea></div>
+      <div class="field"><label>Tipo *</label>${selOpt('tipo',a.tipo,['contrato','compra_directa'])}</div>
+      <div class="field"><label>Estado</label>${selOpt('estado',a.estado||'activo',['activo','cerrado','cancelado'])}</div>
+      <div class="field"><label>Entidad del fondo</label>${selOpt('fondo_entidad',a.fondo_entidad,FONDOS_E)}</div>
+      <div class="field"><label>Tipo de fondo</label>${selOpt('fondo_tipo',a.fondo_tipo,FONDOS_T)}</div>
+      <div class="field"><label>Moneda</label>${selOpt('moneda',a.moneda||'USD',['USD','HNL'])}</div>
+      <div class="field"><label>Presupuesto</label>${inp('presupuesto',a.presupuesto,'number','0')}</div>
+      <div class="field"><label>Ejecutado</label>${inp('ejecutado',a.ejecutado,'number','0')}</div>
+    </div>
+
+    <div style="border-top:0.5px solid var(--border);padding-top:1rem;margin-top:1rem">
+      <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--muted)">SOLPED (SAP)</div>
+      <div class="form-grid">
+        <div class="field"><label>N° SOLPED</label>${inp('solped_numero',a.solped_numero,'text','Ej: 4500012345')}</div>
+        <div class="field"><label>Fecha SOLPED</label>${inp('solped_fecha',a.solped_fecha?a.solped_fecha.substring(0,10):'','date')}</div>
+      </div>
+    </div>
+
+    <div id="contrato-section" style="border-top:0.5px solid var(--border);padding-top:1rem;margin-top:1rem">
+      <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--muted)">Proceso y contrato (si aplica)</div>
+      <div class="form-grid">
+        <div class="field"><label>Consecutivo proceso</label>${inp('proceso_consecutivo',a.proceso_consecutivo)}</div>
+        <div class="field"><label>Tipo licitación</label>${selOpt('proceso_tipo',a.proceso_tipo,PROC_T)}</div>
+        <div class="field"><label>Fecha lanzamiento</label>${inp('proceso_fecha',a.proceso_fecha?a.proceso_fecha.substring(0,10):'','date')}</div>
+        <div class="field"><label>N° Contrato</label>${inp('contrato_consecutivo',a.contrato_consecutivo,'text','Ej: 039-2021')}</div>
+        <div class="field"><label>Empresa contratista</label>${inp('contrato_empresa',a.contrato_empresa,'text','Ej: CHINT-EPD')}</div>
+        <div class="field"><label>Supervisión</label>${inp('contrato_supervision',a.contrato_supervision)}</div>
+        <div class="field"><label>Monto contratado</label>${inp('contrato_monto',a.contrato_monto,'number','0')}</div>
+        <div class="field"><label>Monto pagado</label>${inp('contrato_pagado',a.contrato_pagado,'number','0')}</div>
+        <div class="field"><label>Fecha firma</label>${inp('contrato_fecha_firma',a.contrato_fecha_firma?a.contrato_fecha_firma.substring(0,10):'','date')}</div>
+        <div class="field"><label>Fecha inicio contrato</label>${inp('contrato_fecha_inicio',a.contrato_fecha_inicio?a.contrato_fecha_inicio.substring(0,10):'','date')}</div>
+        <div class="field"><label>Fecha fin contrato</label>${inp('contrato_fecha_fin',a.contrato_fecha_fin?a.contrato_fecha_fin.substring(0,10):'','date')}</div>
+        <div class="field"><label>Estado contrato</label>${selOpt('contrato_estado',a.contrato_estado,['Activo','Finalizado','Suspendido','En negociación'])}</div>
+      </div>
+    </div>
+
+    ${proyId || id ? `<div style="border-top:0.5px solid var(--border);padding-top:1rem;margin-top:1rem">
+      <div style="font-size:13px;font-weight:500;margin-bottom:1rem;color:var(--muted)">Vincular a proyecto</div>
+      <div class="field"><label>Proyecto</label>
+        <select id="af-proyecto_id">
+          <option value="">— Sin vincular —</option>
+          ${(proyects||[]).map(pr=>`<option value="${pr.id}" ${pr.id===(proyId||'')?' selected':''}>${esc(pr.nombre)}</option>`).join('')}
+        </select>
+      </div>
+    </div>` : ''}
+
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-adq')">Cancelar</button>
+      <button class="btn-primary" onclick="saveAdq('${id||''}','${proyId||''}')">Guardar adquisición</button>
+    </div>
+  `;
+  openM('modal-adq');
+}
+
+async function saveAdq(id='', proyId='') {
+  const nombre = v('af-nombre');
+  if(!nombre.trim()) return toast('El nombre es obligatorio.', true);
+  const payload = {
+    nombre, descripcion:v('af-descripcion'), tipo:v('af-tipo')||'contrato',
+    fondo_entidad:v('af-fondo_entidad')||null, fondo_tipo:v('af-fondo_tipo')||null,
+    moneda:v('af-moneda')||'USD', estado:v('af-estado')||'activo',
+    presupuesto:numv('af-presupuesto'), ejecutado:numv('af-ejecutado'),
+    solped_numero:v('af-solped_numero')||null, solped_fecha:v('af-solped_fecha')||null,
+    proceso_consecutivo:v('af-proceso_consecutivo')||null, proceso_tipo:v('af-proceso_tipo')||null,
+    proceso_fecha:v('af-proceso_fecha')||null,
+    contrato_consecutivo:v('af-contrato_consecutivo')||null, contrato_empresa:v('af-contrato_empresa')||null,
+    contrato_supervision:v('af-contrato_supervision')||null,
+    contrato_monto:numv('af-contrato_monto')||null, contrato_pagado:numv('af-contrato_pagado')||null,
+    contrato_fecha_firma:v('af-contrato_fecha_firma')||null,
+    contrato_fecha_inicio:v('af-contrato_fecha_inicio')||null,
+    contrato_fecha_fin:v('af-contrato_fecha_fin')||null,
+    contrato_estado:v('af-contrato_estado')||null,
+    updated_at: new Date().toISOString(),
+  };
+  let error, newId = id;
+  if(id) { ({error}=await sb.from('adquisiciones').update(payload).eq('id',id)); }
+  else {
+    const {data,error:e}=await sb.from('adquisiciones').insert(payload).select().single();
+    error=e; if(data) newId=data.id;
+  }
+  if(error) return toast('Error: '+error.message, true);
+  // Link to project if specified
+  const lnkProyId = document.getElementById('af-proyecto_id') ? v('af-proyecto_id') : proyId;
+  if(newId && lnkProyId) {
+    await sb.from('proyecto_adquisicion').upsert({proyecto_id:lnkProyId, adquisicion_id:newId},{onConflict:'proyecto_id,adquisicion_id'});
+  }
+  closeM('modal-adq');
+  toast(id?'Adquisición actualizada.':'Adquisición creada.');
+  if(proyId) nav('proyecto_detalle',{projectId:proyId, tab:2});
+  else nav('adquisiciones');
+}
+
+async function unlinkAdq(proyId, adqId) {
+  if(!confirm('¿Desvincular esta adquisición del proyecto? (No la elimina)')) return;
+  await sb.from('proyecto_adquisicion').delete().eq('proyecto_id',proyId).eq('adquisicion_id',adqId);
+  toast('Adquisición desvinculada.');
+  nav('proyecto_detalle',{projectId:proyId, tab:2});
+}
+
+// ═══════════════════════════════════════════════════════
+// ACTUALIZACIONES SEMANALES
+// ═══════════════════════════════════════════════════════
+async function renderActualizaciones() {
+  const { data: updates } = await sb.from('actualizaciones').select('*, proyectos(nombre,codigo), profiles(full_name)').order('fecha',{ascending:false}).limit(100);
+  const us = updates||[];
+  document.getElementById('main-content').innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Proyecto</th><th>PM</th><th>% Obra</th><th>% Proyecto</th><th>% Financiero</th><th>Ejecutado HNL</th><th>Notas</th></tr></thead>
+        <tbody>
+          ${!us.length ? `<tr><td colspan="8"><div class="empty">Sin actualizaciones registradas.</div></td></tr>` :
+          us.map(u=>`<tr>
+            <td style="white-space:nowrap;font-size:12px">${fmtDate(u.fecha)}</td>
+            <td style="font-size:12px;cursor:pointer;color:var(--p)" onclick="nav('proyecto_detalle',{projectId:'${u.proyecto_id}'})">${esc(u.proyectos?.nombre||'—').substring(0,40)}</td>
+            <td style="font-size:12px">${esc(u.profiles?.full_name||'—')}</td>
+            <td>${u.pct_obra??'—'}%</td><td>${u.pct_proyecto??'—'}%</td><td>${u.pct_financiero??'—'}%</td>
+            <td style="text-align:right;font-size:12px">L ${fmtNum(u.ejecutado_hnl||0)}</td>
+            <td style="font-size:12px;color:var(--muted)">${esc((u.notas||'').substring(0,80))}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openUpdateModal(proyId) {
+  document.getElementById('modal-update-body').innerHTML = `
+    <h2>Nueva actualización</h2>
+    <div class="field"><label>Fecha *</label><input type="date" id="uf-fecha" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem">
+      <div class="field"><label>% Ejecución obra</label><input type="number" id="uf-obra" min="0" max="100" placeholder="0"></div>
+      <div class="field"><label>% Avance proyecto</label><input type="number" id="uf-proy" min="0" max="100" placeholder="0"></div>
+      <div class="field"><label>% Avance financiero</label><input type="number" id="uf-fin" min="0" max="100" placeholder="0"></div>
+    </div>
+    <div class="field"><label>Ejecutado HNL</label><input type="number" id="uf-ejec" placeholder="0"></div>
+    <div class="field"><label>Notas / comentarios</label><textarea id="uf-notas" placeholder="Describe el avance, actividades realizadas, situación actual..."></textarea></div>
+    <div class="field"><label>Alertas o riesgos</label><textarea id="uf-alertas" placeholder="Problemas, riesgos o puntos de atención..." style="min-height:56px"></textarea></div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-update')">Cancelar</button>
+      <button class="btn-primary" onclick="saveUpdate('${proyId}')">Guardar actualización</button>
+    </div>
+  `;
+  openM('modal-update');
+}
+
+async function saveUpdate(proyId) {
+  const fecha = v('uf-fecha');
+  if(!fecha) return toast('Selecciona una fecha.', true);
+  const obra = numv('uf-obra'), proy = numv('uf-proy'), fin = numv('uf-fin');
+  const payload = {
+    proyecto_id:proyId, usuario_id:app.user.id, fecha,
+    pct_obra:obra||null, pct_proyecto:proy||null, pct_financiero:fin||null,
+    ejecutado_hnl:numv('uf-ejec')||null, notas:v('uf-notas')||null, alertas:v('uf-alertas')||null,
+  };
+  // Also update project progress
+  const upd = {}; if(obra) upd.pct_ejecucion_obra=obra; if(proy) upd.pct_avance_proyecto=proy; if(fin) upd.pct_avance_financiero=fin;
+  upd.updated_at = new Date().toISOString();
+  const [{error:e1},{error:e2}] = await Promise.all([
+    sb.from('actualizaciones').insert(payload),
+    sb.from('proyectos').update(upd).eq('id',proyId),
+  ]);
+  if(e1) return toast('Error: '+e1.message, true);
+  closeM('modal-update');
+  toast('Actualización guardada.');
+  nav('proyecto_detalle',{projectId:proyId, tab:1});
+}
+
+// ═══════════════════════════════════════════════════════
+// EQUIPO
+// ═══════════════════════════════════════════════════════
+async function renderEquipo() {
+  const [{ data:profiles },{ data:proyects }] = await Promise.all([
+    sb.from('profiles').select('*').order('full_name'),
+    sb.from('proyectos').select('id,nombre,pm_id,estado_general'),
+  ]);
+  const ps = profiles||[], prs = proyects||[];
+  document.getElementById('topbar-actions').innerHTML =
+    `<small style="color:var(--muted);font-size:12px">Gestiona usuarios en Supabase → Authentication → Users</small>`;
+  document.getElementById('main-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem">
+      ${ps.map(p=>{
+        const myProjs = prs.filter(pr=>pr.pm_id===p.id);
+        const initials = (p.full_name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+        const roleColors = {coordinador:'var(--pd)',lider:'var(--tld)',pm:'var(--muted)'};
+        return `<div class="card">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:44px;height:44px;border-radius:50%;background:var(--pl);color:var(--pd);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;flex-shrink:0">${initials}</div>
+            <div>
+              <div style="font-size:14px;font-weight:500">${esc(p.full_name||'Sin nombre')}</div>
+              <div style="font-size:11px;color:${roleColors[p.role]||'var(--muted)'};font-weight:500;margin-top:2px">${(p.role||'pm').toUpperCase()}</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${esc(p.email||'')}</div>
+          <div style="border-top:0.5px solid var(--border);padding-top:8px">
+            <div style="font-size:11px;color:var(--hint);margin-bottom:6px">${myProjs.length} proyecto${myProjs.length!==1?'s':''} asignado${myProjs.length!==1?'s':''}</div>
+            ${myProjs.slice(0,3).map(pr=>`<div style="font-size:12px;margin-bottom:3px;cursor:pointer;color:var(--p)" onclick="nav('proyecto_detalle',{projectId:'${pr.id}'})">${esc(pr.nombre.substring(0,35))}</div>`).join('')}
+            ${myProjs.length>3?`<div style="font-size:11px;color:var(--hint)">+${myProjs.length-3} más</div>`:''}
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn-ghost" style="width:100%;font-size:12px;padding:6px" onclick="changeRole('${p.id}','${p.role||'pm'}')">Cambiar rol</button>
+          </div>
+        </div>`;
+      }).join('')||'<div class="empty">Sin usuarios registrados.</div>'}
+    </div>
+  `;
+}
+
+async function changeRole(uid, currentRole) {
+  const roles = ['coordinador','lider','pm'];
+  const next = roles[(roles.indexOf(currentRole)+1)%roles.length];
+  if(!confirm(`¿Cambiar rol a: ${next.toUpperCase()}?`)) return;
+  const {error} = await sb.from('profiles').update({role:next}).eq('id',uid);
+  if(error) return toast('Error: '+error.message, true);
+  toast('Rol actualizado a '+next.toUpperCase());
+  nav('equipo');
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════
+function v(id)   { const el=document.getElementById(id); return el?el.value.trim():''; }
+function numv(id){ const el=document.getElementById(id); return el&&el.value?parseFloat(el.value):0; }
+function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtNum(n){ return Number(n).toLocaleString('es-HN',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtDate(d){ if(!d) return '—'; try{ const[y,m,dd]=(d.substring?d.substring(0,10):d).split('-'); return `${dd}/${m}/${y}`; }catch{return d;} }
+
+let toastTimer;
+function toast(msg,isErr=false) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.background=isErr?'#A32D2D':'#2C2C2A';
+  el.classList.add('show'); clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+function openM(id)  { document.getElementById(id).classList.add('open'); }
+function closeM(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-wrap').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+
+async function deleteRecord(table, id, returnView) {
+  if(!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+  const {error} = await sb.from(table).delete().eq('id',id);
+  if(error) return toast('Error: '+error.message, true);
+  toast('Registro eliminado.');
+  if(returnView) nav(returnView, returnView==='proyecto_detalle'?{projectId:app.projectId}:{});
+  else render();
+}
+
+async function confirmDelete(table, id) {
+  const names = {proyectos:'este proyecto y todas sus tareas',adquisiciones:'esta adquisición'};
+  if(!confirm(`¿Eliminar ${names[table]||'este registro'}?`)) return;
+  const {error} = await sb.from(table).delete().eq('id',id);
+  if(error) return toast('Error: '+error.message, true);
+  toast('Eliminado correctamente.');
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════
 init();
 </script>
-</body>
-</html>

@@ -188,7 +188,7 @@ tr.clickable:hover td{background:var(--bg)}
 ═══════════════════════════════════════════════════════ -->
 <div id="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo">⚡ PMO SGP</div>
+    <div class="auth-logo"><img id="auth-logo-img" src="" style="height:48px;object-fit:contain;display:none"><span id="auth-logo-txt">⚡ PMO</span></div>
     <p class="auth-sub" id="auth-sub">Ingresa a tu cuenta</p>
     <div id="auth-msg"></div>
 
@@ -228,8 +228,8 @@ tr.clickable:hover td{background:var(--bg)}
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-logo">
-        <div class="name">⚡ PMO SGP</div>
-        <div class="sub">UTCD — ENEE</div>
+        <img id="sidebar-logo-img" src="" style="max-height:44px;max-width:170px;object-fit:contain;display:none">
+        <div id="sidebar-logo-txt"><div class="name">⚡ PMO SGP</div><div class="sub">UTCD — ENEE</div></div>
       </div>
       <div style="flex:1;overflow-y:auto;padding-bottom:1rem">
         <div class="nav-section">Principal</div>
@@ -237,8 +237,12 @@ tr.clickable:hover td{background:var(--bg)}
         <button class="nav-item" onclick="nav('proyectos')"><span class="nav-icon">📁</span>Proyectos</button>
         <button class="nav-item" onclick="nav('adquisiciones')"><span class="nav-icon">📋</span>Adquisiciones</button>
         <div class="nav-section">Gestión</div>
+        <button class="nav-item" onclick="nav('mapa')"><span class="nav-icon">🗺️</span>Mapa</button>
+        <div class="nav-section">Gestión</div>
         <button class="nav-item" onclick="nav('actualizaciones')"><span class="nav-icon">📝</span>Actualizaciones</button>
         <button class="nav-item" onclick="nav('equipo')"><span class="nav-icon">👥</span>Equipo</button>
+        <div class="nav-section" id="nav-admin-section" style="display:none">Admin</div>
+        <button class="nav-item" id="nav-config" style="display:none" onclick="nav('configuracion')"><span class="nav-icon">⚙️</span>Configuración</button>
       </div>
       <div class="sidebar-footer">
         <div class="user-chip">
@@ -267,13 +271,19 @@ tr.clickable:hover td{background:var(--bg)}
 </div>
 
 <!-- MODALS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <div class="modal-wrap" id="modal-proyecto"><div class="modal modal-lg" id="modal-proyecto-body"></div></div>
 <div class="modal-wrap" id="modal-adq"><div class="modal modal-lg" id="modal-adq-body"></div></div>
 <div class="modal-wrap" id="modal-update"><div class="modal" id="modal-update-body"></div></div>
 <div class="modal-wrap" id="modal-adenda"><div class="modal" id="modal-adenda-body"></div></div>
 <div class="modal-wrap" id="modal-pago"><div class="modal" id="modal-pago-body"></div></div>
 <div class="modal-wrap" id="modal-confirm"><div class="modal" id="modal-confirm-body"></div></div>
-</body>
+<div class="modal-wrap" id="modal-ficha"><div class="modal modal-lg" id="modal-ficha-body"></div></div>
+<div class="modal-wrap" id="modal-evm"><div class="modal modal-lg" id="modal-evm-body"></div></div>
+<div class="modal-wrap" id="modal-persona"><div class="modal" id="modal-persona-body"></div></div>
+<div class="modal-wrap" id="modal-lista"><div class="modal" id="modal-lista-body"></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </html>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -311,6 +321,21 @@ async function loadProfile() {
   document.getElementById('sidebar-av').textContent   = initials;
   document.getElementById('sidebar-name').textContent = name;
   document.getElementById('sidebar-role').textContent = (app.profile?.role || 'pm').toUpperCase();
+  // Show admin nav only for coordinador
+  if(app.profile?.role === 'coordinador') {
+    document.getElementById('nav-admin-section').style.display = '';
+    document.getElementById('nav-config').style.display = '';
+  }
+  // Load logo from config
+  try {
+    const {data:cfg} = await sb.from('config_listas').select('valor').eq('categoria','logo').eq('activo',true).single();
+    if(cfg?.valor) {
+      const img1 = document.getElementById('sidebar-logo-img');
+      const img2 = document.getElementById('auth-logo-img');
+      if(img1){ img1.src=cfg.valor; img1.style.display='block'; document.getElementById('sidebar-logo-txt').style.display='none'; }
+      if(img2){ img2.src=cfg.valor; img2.style.display='block'; document.getElementById('auth-logo-txt').style.display='none'; }
+    }
+  } catch(e){}
 }
 
 function showMode(m) {
@@ -382,7 +407,8 @@ async function render() {
   mc.innerHTML = `<div class="loading-state"><span class="spinner"></span> Cargando...</div>`;
   const t = {
     dashboard:'Dashboard', proyectos:'Proyectos', proyecto_detalle:'Detalle de proyecto',
-    adquisiciones:'Adquisiciones', actualizaciones:'Actualizaciones', equipo:'Equipo'
+    adquisiciones:'Adquisiciones', actualizaciones:'Actualizaciones', equipo:'Equipo',
+    mapa:'Mapa de proyectos', configuracion:'Configuración', ficha_tecnica:'Ficha técnica', evm:'EVM — Curva S'
   };
   document.getElementById('topbar-title').textContent = t[app.view] || app.view;
   switch(app.view) {
@@ -392,6 +418,9 @@ async function render() {
     case 'adquisiciones':    await renderAdquisiciones(); break;
     case 'actualizaciones':  await renderActualizaciones(); break;
     case 'equipo':           await renderEquipo(); break;
+    case 'mapa':             await renderMapa(); break;
+    case 'configuracion':    await renderConfiguracion(); break;
+    case 'evm':              await renderEVM(); break;
   }
 }
 
@@ -522,7 +551,8 @@ async function renderProyectos() {
   const ps = projs||[];
 
   document.getElementById('topbar-actions').innerHTML =
-    `<button class="btn-primary" onclick="openProyectoForm()">+ Nuevo proyecto</button>`;
+    `<button class="btn-ghost" onclick="exportarExcel()" style="font-size:12px">⬇ Exportar cartera</button>
+     <button class="btn-primary" onclick="openProyectoForm()">+ Nuevo proyecto</button>`;
 
   document.getElementById('main-content').innerHTML = `
     <div class="filter-bar">
@@ -606,12 +636,14 @@ async function renderProyectoDetalle() {
   if(!p) return;
   document.getElementById('topbar-title').textContent = p.nombre.substring(0,50);
   document.getElementById('topbar-actions').innerHTML = `
+    <button class="btn-ghost" style="font-size:12px" onclick="exportarExcel('${id}')">⬇ CSV</button>
+    <button class="btn-ghost" style="font-size:12px" onclick="exportarPDF('${id}')">🖨 PDF</button>
     <button class="btn-ghost" onclick="openUpdateModal('${id}')">+ Actualización</button>
     <button class="btn-primary" onclick="openProyectoForm('${id}')">✏️ Editar</button>
   `;
 
   const adqs = (adqLinks||[]).map(l=>l.adquisiciones).filter(Boolean);
-  const tabs = ['Información','Avances','Adquisiciones'];
+  const tabs = ['Información','Avances','Adquisiciones','Ficha técnica','EVM / Curva S'];
 
   document.getElementById('main-content').innerHTML = `
     <button class="back-btn" onclick="nav('proyectos')">← Volver a proyectos</button>
@@ -668,6 +700,8 @@ function renderTab(p, updates, adqs) {
     case 0: return renderTabInfo(p);
     case 1: return renderTabUpdates(p, updates);
     case 2: return renderTabAdqs(p, adqs);
+    case 3: return renderTabFicha(p);
+    case 4: return renderTabEVM(p);
     default: return '';
   }
 }
@@ -784,35 +818,49 @@ function renderTabAdqs(p, adqs) {
 async function openProyectoForm(id=null) {
   let p = {};
   if(id) { const {data} = await sb.from('proyectos').select('*').eq('id',id).single(); p = data||{}; }
-  const [{ data:portafolios },{ data:programas },{ data:pms }] = await Promise.all([
+  const [{ data:portafolios },{ data:programas },{ data:pms },listas,{data:personas}] = await Promise.all([
     sb.from('portafolios').select('id,nombre').order('nombre'),
     sb.from('programas').select('id,nombre').order('nombre'),
     sb.from('profiles').select('id,full_name').order('full_name'),
+    loadListas(),
+    sb.from('personas').select('id,nombre,tipos').eq('activo',true).order('nombre'),
   ]);
-  const sel = (name,val,opts) => `<select id="pf-${name}">${opts.map(o=>`<option value="${esc(typeof o==='string'?o:o.id)}" ${(typeof o==='string'?o:o.id)===val?'selected':''}>${esc(typeof o==='string'?o:o.nombre||o.full_name)}</option>`).join('')}</select>`;
+  const selDyn = (name,val,cat,ph='—') => {
+    const opts=(listas[cat]||[]);
+    return `<select id="pf-${name}"><option value="">${ph}</option>${opts.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+  };
+  const selPersona = (name,val,tipo) => {
+    const filtered=(personas||[]).filter(pe=>(pe.tipos||[]).includes(tipo));
+    return `<select id="pf-${name}"><option value="">—</option>${filtered.map(pe=>`<option value="${pe.id}" ${pe.id===val?'selected':''}>${esc(pe.nombre)}</option>`).join('')}</select>`;
+  };
   const inp = (name,val,type='text',ph='') => `<input type="${type}" id="pf-${name}" value="${esc(val||'')}" placeholder="${ph}">`;
-  const selOpt = (name,val,arr) => `<select id="pf-${name}"><option value="">—</option>${arr.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
 
   document.getElementById('modal-proyecto-body').innerHTML = `
     <h2>${id?'Editar proyecto':'Nuevo proyecto'}</h2>
     <div class="form-grid">
       <div class="field full"><label>Nombre del proyecto *</label>${inp('nombre',p.nombre,'text','Ej: Ampliación SE Norte')}</div>
       <div class="field"><label>Código</label>${inp('codigo',p.codigo,'text','P-001-00')}</div>
-      <div class="field"><label>Estado general</label>${selOpt('estado_general',p.estado_general,ESTADOS)}</div>
-      <div class="field"><label>Etapa del proyecto</label>${selOpt('estado_proyecto',p.estado_proyecto,ETAPAS)}</div>
-      <div class="field"><label>Tipo de proyecto</label>${selOpt('tipo_proyecto',p.tipo_proyecto,TIPOS)}</div>
-      <div class="field"><label>Naturaleza</label>${selOpt('naturaleza',p.naturaleza,NATURAL)}</div>
-      <div class="field"><label>Complejidad</label>${selOpt('complejidad',p.complejidad,COMPLEX)}</div>
-      <div class="field"><label>Unidad de negocio</label>${selOpt('unidad_negocio',p.unidad_negocio,NEGOCIOS)}</div>
-      <div class="field"><label>PM responsable</label><select id="pf-pm_id"><option value="">—</option>${(pms||[]).map(u=>`<option value="${u.id}" ${u.id===p.pm_id?'selected':''}>${esc(u.full_name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Estado general</label>${selDyn('estado_general',p.estado_general,'estado_general')}</div>
+      <div class="field"><label>Etapa del proyecto</label>${selDyn('estado_proyecto',p.estado_proyecto,'estado_proyecto')}</div>
+      <div class="field"><label>Tipo de proyecto</label>${selDyn('tipo_proyecto',p.tipo_proyecto,'tipo_proyecto')}</div>
+      <div class="field"><label>Naturaleza</label>${selDyn('naturaleza',p.naturaleza,'naturaleza')}</div>
+      <div class="field"><label>Complejidad</label>${selDyn('complejidad',p.complejidad,'complejidad')}</div>
+      <div class="field"><label>Unidad de negocio</label>${selDyn('unidad_negocio',p.unidad_negocio,'unidad_negocio')}</div>
+
+      <div class="field"><label>PM responsable (usuario)</label><select id="pf-pm_id"><option value="">—</option>${(pms||[]).map(u=>`<option value="${u.id}" ${u.id===p.pm_id?'selected':''}>${esc(u.full_name)}</option>`).join('')}</select></div>
+      <div class="field"><label>PM responsable (persona)</label>${selPersona('pm_persona_id',p.pm_persona_id||'','pm')}</div>
+      <div class="field"><label>Sponsor</label>${selPersona('sponsor_id',p.sponsor_id||'','sponsor')}</div>
+      <div class="field"><label>Líder del proyecto</label>${selPersona('lider_persona_id',p.lider_persona_id||'','lider')}</div>
+
       <div class="field"><label>Portafolio</label><select id="pf-portafolio_id"><option value="">—</option>${(portafolios||[]).map(po=>`<option value="${po.id}" ${po.id===p.portafolio_id?'selected':''}>${esc(po.nombre)}</option>`).join('')}</select></div>
       <div class="field"><label>Programa</label><select id="pf-programa_id"><option value="">—</option>${(programas||[]).map(pr=>`<option value="${pr.id}" ${pr.id===p.programa_id?'selected':''}>${esc(pr.nombre)}</option>`).join('')}</select></div>
       <div class="field"><label>Fondos</label>${inp('fondos',p.fondos,'text','BID, ENEE-Inversión...')}</div>
+      <div class="field"><label>Línea presupuestaria</label>${inp('linea_presupuestaria',p.linea_presupuestaria)}</div>
 
-      <div class="field"><label>Fecha inicio planificada</label>${inp('fecha_inicio_planificada',p.fecha_inicio_planificada?p.fecha_inicio_planificada.substring(0,10):'','date')}</div>
-      <div class="field"><label>Fecha fin planificada</label>${inp('fecha_fin_planificada',p.fecha_fin_planificada?p.fecha_fin_planificada.substring(0,10):'','date')}</div>
-      <div class="field"><label>Fecha inicio real</label>${inp('fecha_inicio_real',p.fecha_inicio_real?p.fecha_inicio_real.substring(0,10):'','date')}</div>
-      <div class="field"><label>Fecha fin real</label>${inp('fecha_fin_real',p.fecha_fin_real?p.fecha_fin_real.substring(0,10):'','date')}</div>
+      <div class="field"><label>Fecha inicio planificada</label>${inp('fecha_inicio_planificada',p.fecha_inicio_planificada?.substring(0,10)||'','date')}</div>
+      <div class="field"><label>Fecha fin planificada</label>${inp('fecha_fin_planificada',p.fecha_fin_planificada?.substring(0,10)||'','date')}</div>
+      <div class="field"><label>Fecha inicio real</label>${inp('fecha_inicio_real',p.fecha_inicio_real?.substring(0,10)||'','date')}</div>
+      <div class="field"><label>Fecha fin real</label>${inp('fecha_fin_real',p.fecha_fin_real?.substring(0,10)||'','date')}</div>
 
       <div class="field"><label>Inversión USD</label>${inp('inversion_usd',p.inversion_usd,'number','0')}</div>
       <div class="field"><label>Inversión HNL</label>${inp('inversion_hnl',p.inversion_hnl,'number','0')}</div>
@@ -823,10 +871,10 @@ async function openProyectoForm(id=null) {
 
       <div class="field"><label>Departamento</label>${inp('departamento',p.departamento,'text','Ej: Francisco Morazán')}</div>
       <div class="field"><label>Municipio</label>${inp('municipio',p.municipio,'text','Ej: Tegucigalpa')}</div>
-      <div class="field"><label>Zona ENEE</label>${inp('zona_enee',p.zona_enee)}</div>
+      <div class="field"><label>Zona ENEE</label>${selDyn('zona_enee',p.zona_enee,'zona_enee')}</div>
       <div class="field"><label>Sector UTCD</label>${inp('sector_utcd',p.sector_utcd)}</div>
-      <div class="field"><label>Latitud</label>${inp('lat',p.lat,'number')}</div>
-      <div class="field"><label>Longitud</label>${inp('lon',p.lon,'number')}</div>
+      <div class="field"><label>Latitud</label>${inp('lat',p.lat,'number','14.0723')}</div>
+      <div class="field"><label>Longitud</label>${inp('lon',p.lon,'number','-87.2062')}</div>
       <div class="field"><label>Circuitos asociados</label>${inp('circuitos_asociados',p.circuitos_asociados)}</div>
       <div class="field"><label>N° beneficiados</label>${inp('nro_beneficiados',p.nro_beneficiados,'number')}</div>
 
@@ -850,6 +898,7 @@ async function saveProyecto(id='') {
     tipo_proyecto:v('pf-tipo_proyecto'), naturaleza:v('pf-naturaleza'), complejidad:v('pf-complejidad'),
     unidad_negocio:v('pf-unidad_negocio'), fondos:v('pf-fondos'),
     pm_id:v('pf-pm_id')||null, portafolio_id:v('pf-portafolio_id')||null, programa_id:v('pf-programa_id')||null,
+    sponsor_id:v('pf-sponsor_id')||null, lider_persona_id:v('pf-lider_persona_id')||null,
     fecha_inicio_planificada:v('pf-fecha_inicio_planificada')||null, fecha_fin_planificada:v('pf-fecha_fin_planificada')||null,
     fecha_inicio_real:v('pf-fecha_inicio_real')||null, fecha_fin_real:v('pf-fecha_fin_real')||null,
     inversion_usd:numv('pf-inversion_usd'), inversion_hnl:numv('pf-inversion_hnl'),
@@ -1200,6 +1249,526 @@ async function confirmDelete(table, id) {
   toast('Eliminado correctamente.');
   render();
 }
+
+// ═══════════════════════════════════════════════════════
+// FICHA TÉCNICA
+// ═══════════════════════════════════════════════════════
+function renderTabFicha(p) {
+  const nat = (p.naturaleza||'').toUpperCase();
+  const tipo = nat.includes('SUBESTACION')||nat.includes('SUBESTACIÓN') ? 'subestacion'
+    : nat.includes('REDES')||nat.includes('CIRCUITO') ? 'redes'
+    : nat.includes('GENERACION')||nat.includes('GENERACIÓN') ? 'generacion'
+    : nat.includes('TRANSMISION')||nat.includes('TRANSMISIÓN') ? 'transmision' : null;
+  if(!tipo) return `<div class="empty">No hay ficha técnica definida para proyectos de naturaleza <strong>${esc(p.naturaleza||'no especificada')}</strong>.<br><br>Tipos con ficha: Subestación, Redes, Generación, Transmisión.</div>`;
+  app._fichaTipo = tipo;
+  loadFicha(p.id, tipo);
+  return `<div id="ficha-content"><div class="loading-state"><span class="spinner"></span> Cargando ficha...</div></div>`;
+}
+
+async function loadFicha(proyId, tipo) {
+  const tabla = 'ficha_'+tipo;
+  const {data:f} = await sb.from(tabla).select('*').eq('proyecto_id',proyId).maybeSingle();
+  const el = document.getElementById('ficha-content');
+  if(!el) return;
+  const btns = `<div class="form-actions" style="margin-top:0;padding-top:0;border:none">
+    <button class="btn-primary" onclick="openFichaForm('${proyId}','${tipo}')">✏️ ${f?'Editar':'Completar'} ficha técnica</button>
+  </div>`;
+  if(!f) { el.innerHTML = `<div class="empty" style="margin-bottom:1rem">Ficha técnica vacía. Complétala con los datos técnicos del proyecto.</div>${btns}`; return; }
+
+  const row = (l,v) => v!=null&&v!==''?`<tr><td style="color:var(--muted);font-size:12px;padding:8px 0;width:45%;vertical-align:top">${l}</td><td style="font-size:13px;padding:8px 0">${v}</td></tr>`:'';
+  let fields = '';
+  if(tipo==='subestacion') fields = `
+    ${row('Tipo de subestación',esc(f.tipo_subestacion))}
+    ${row('Tensión alta (kV)',f.nivel_tension_alta)}${row('Tensión baja (kV)',f.nivel_tension_baja)}
+    ${row('Potencia (MVA)',f.potencia_mva)}${row('N° transformadores',f.cant_transformadores)}
+    ${row('Capacidad transf. (MVA)',f.capacidad_transformadores_mva||f.potencia_mva)}
+    ${row('Marca transformador',esc(f.marca_transformador))}${row('Tipo de barra',esc(f.tipo_barra))}
+    ${row('N° bahías',f.cant_bahias)}${row('Sistema protección',esc(f.sistema_proteccion))}
+    ${row('Sistema control',esc(f.sistema_control))}${row('Área terreno (m²)',f.area_terreno_m2)}
+    ${row('Empresa constructora',esc(f.empresa_constructora))}${row('Empresa supervisión',esc(f.empresa_supervision))}
+    ${row('Norma aplicable',esc(f.norma_aplicable))}${row('Observaciones',esc(f.observaciones))}`;
+  else if(tipo==='redes') fields = `
+    ${row('Tipo de red',esc(f.tipo_red))}${row('Nivel de tensión (kV)',f.nivel_tension)}
+    ${row('Longitud (km)',f.longitud_km)}${row('Calibre conductor',esc(f.calibre_conductor))}
+    ${row('N° circuitos',f.cant_circuitos)}${row('Circuitos',esc(f.circuitos_nombres))}
+    ${row('N° postes',f.cant_postes)}${row('Tipo estructura',esc(f.tipo_estructura))}
+    ${row('Zona geográfica',esc(f.zona_geografica))}${row('Clientes beneficiados',f.clientes_beneficiados)}
+    ${row('Empresa constructora',esc(f.empresa_constructora))}${row('Observaciones',esc(f.observaciones))}`;
+  else if(tipo==='generacion') fields = `
+    ${row('Tipo de generación',esc(f.tipo_generacion))}${row('Capacidad (MW)',f.capacidad_mw)}
+    ${row('N° unidades',f.cantidad_unidades)}${row('Marca equipos',esc(f.marca_equipos))}
+    ${row('Combustible',esc(f.combustible))}${row('Punto interconexión',esc(f.punto_interconexion))}
+    ${row('Tensión (kV)',f.nivel_tension_kv)}${row('Factor de planta',f.factor_planta)}
+    ${row('Empresa constructora',esc(f.empresa_constructora))}${row('Observaciones',esc(f.observaciones))}`;
+  else if(tipo==='transmision') fields = `
+    ${row('Tipo de línea',esc(f.tipo_linea))}${row('Tensión (kV)',f.nivel_tension_kv)}
+    ${row('Longitud (km)',f.longitud_km)}${row('Calibre conductor',esc(f.calibre_conductor))}
+    ${row('N° circuitos',f.cant_circuitos)}${row('Tipo estructura',esc(f.tipo_estructura))}
+    ${row('SE origen',esc(f.subestacion_origen))}${row('SE destino',esc(f.subestacion_destino))}
+    ${row('Empresa constructora',esc(f.empresa_constructora))}${row('Observaciones',esc(f.observaciones))}`;
+
+  el.innerHTML = `<div class="card"><table style="width:100%;border-collapse:collapse">${fields}</table></div><div style="margin-top:1rem">${btns}</div>`;
+}
+
+async function openFichaForm(proyId, tipo) {
+  const tabla = 'ficha_'+tipo;
+  const {data:f} = await sb.from(tabla).select('*').eq('proyecto_id',proyId).maybeSingle();
+  const d = f||{};
+  const inp = (id,val,type='text',ph='') => `<input type="${type}" id="ff-${id}" value="${esc(val??'')}" placeholder="${ph}">`;
+  const so = (id,val,arr) => `<select id="ff-${id}"><option value="">—</option>${arr.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+  let fields = '';
+  if(tipo==='subestacion') fields = `
+    <div class="field"><label>Tipo de subestación</label>${so('tipo_subestacion',d.tipo_subestacion,['Nueva construcción','Ampliación','Rehabilitación','Reposición'])}</div>
+    <div class="field"><label>Tensión alta (kV)</label>${inp('nivel_tension_alta',d.nivel_tension_alta,'number')}</div>
+    <div class="field"><label>Tensión baja (kV)</label>${inp('nivel_tension_baja',d.nivel_tension_baja,'number')}</div>
+    <div class="field"><label>Potencia total (MVA)</label>${inp('potencia_mva',d.potencia_mva,'number')}</div>
+    <div class="field"><label>N° transformadores</label>${inp('cant_transformadores',d.cant_transformadores,'number')}</div>
+    <div class="field"><label>Marca transformador</label>${inp('marca_transformador',d.marca_transformador)}</div>
+    <div class="field"><label>Tipo de barra</label>${so('tipo_barra',d.tipo_barra,['Barra simple','Barra doble','Barra en H','Barra en anillo'])}</div>
+    <div class="field"><label>N° bahías</label>${inp('cant_bahias',d.cant_bahias,'number')}</div>
+    <div class="field"><label>Sistema de protección</label>${inp('sistema_proteccion',d.sistema_proteccion)}</div>
+    <div class="field"><label>Sistema de control</label>${inp('sistema_control',d.sistema_control)}</div>
+    <div class="field"><label>Área terreno (m²)</label>${inp('area_terreno_m2',d.area_terreno_m2,'number')}</div>
+    <div class="field"><label>Empresa constructora</label>${inp('empresa_constructora',d.empresa_constructora)}</div>
+    <div class="field"><label>Empresa supervisión</label>${inp('empresa_supervision',d.empresa_supervision)}</div>
+    <div class="field full"><label>Norma aplicable</label>${inp('norma_aplicable',d.norma_aplicable)}</div>
+    <div class="field full"><label>Observaciones</label><textarea id="ff-observaciones">${esc(d.observaciones||'')}</textarea></div>`;
+  else if(tipo==='redes') fields = `
+    <div class="field"><label>Tipo de red</label>${so('tipo_red',d.tipo_red,['MT Aérea','MT Subterránea','BT Aérea','BT Subterránea','Mixta'])}</div>
+    <div class="field"><label>Nivel tensión (kV)</label>${inp('nivel_tension',d.nivel_tension,'number')}</div>
+    <div class="field"><label>Longitud (km)</label>${inp('longitud_km',d.longitud_km,'number')}</div>
+    <div class="field"><label>Calibre conductor</label>${inp('calibre_conductor',d.calibre_conductor,'text','Ej: 2/0 AWG ACSR')}</div>
+    <div class="field"><label>N° circuitos</label>${inp('cant_circuitos',d.cant_circuitos,'number')}</div>
+    <div class="field"><label>Nombres de circuitos</label>${inp('circuitos_nombres',d.circuitos_nombres,'text','Ej: CIR-L318, CIR-L205')}</div>
+    <div class="field"><label>N° postes</label>${inp('cant_postes',d.cant_postes,'number')}</div>
+    <div class="field"><label>Tipo de estructura</label>${inp('tipo_estructura',d.tipo_estructura)}</div>
+    <div class="field"><label>Zona geográfica</label>${inp('zona_geografica',d.zona_geografica)}</div>
+    <div class="field"><label>Clientes beneficiados</label>${inp('clientes_beneficiados',d.clientes_beneficiados,'number')}</div>
+    <div class="field"><label>Empresa constructora</label>${inp('empresa_constructora',d.empresa_constructora)}</div>
+    <div class="field full"><label>Observaciones</label><textarea id="ff-observaciones">${esc(d.observaciones||'')}</textarea></div>`;
+  else if(tipo==='generacion') fields = `
+    <div class="field"><label>Tipo generación</label>${so('tipo_generacion',d.tipo_generacion,['Motores','Turbina gas','Solar FV','Eólica','Hidroeléctrica','Biomasa'])}</div>
+    <div class="field"><label>Capacidad (MW)</label>${inp('capacidad_mw',d.capacidad_mw,'number')}</div>
+    <div class="field"><label>N° unidades</label>${inp('cantidad_unidades',d.cantidad_unidades,'number')}</div>
+    <div class="field"><label>Marca equipos</label>${inp('marca_equipos',d.marca_equipos)}</div>
+    <div class="field"><label>Combustible</label>${inp('combustible',d.combustible)}</div>
+    <div class="field"><label>Punto interconexión</label>${inp('punto_interconexion',d.punto_interconexion)}</div>
+    <div class="field"><label>Tensión interconexión (kV)</label>${inp('nivel_tension_kv',d.nivel_tension_kv,'number')}</div>
+    <div class="field"><label>Factor de planta (%)</label>${inp('factor_planta',d.factor_planta,'number')}</div>
+    <div class="field"><label>Empresa constructora</label>${inp('empresa_constructora',d.empresa_constructora)}</div>
+    <div class="field full"><label>Observaciones</label><textarea id="ff-observaciones">${esc(d.observaciones||'')}</textarea></div>`;
+  else if(tipo==='transmision') fields = `
+    <div class="field"><label>Tipo de línea</label>${so('tipo_linea',d.tipo_linea,['Línea nueva','Reconductorado','Rehabilitación'])}</div>
+    <div class="field"><label>Tensión (kV)</label>${inp('nivel_tension_kv',d.nivel_tension_kv,'number')}</div>
+    <div class="field"><label>Longitud (km)</label>${inp('longitud_km',d.longitud_km,'number')}</div>
+    <div class="field"><label>Calibre conductor</label>${inp('calibre_conductor',d.calibre_conductor)}</div>
+    <div class="field"><label>N° circuitos</label>${inp('cant_circuitos',d.cant_circuitos,'number')}</div>
+    <div class="field"><label>Tipo estructura</label>${inp('tipo_estructura',d.tipo_estructura)}</div>
+    <div class="field"><label>SE origen</label>${inp('subestacion_origen',d.subestacion_origen)}</div>
+    <div class="field"><label>SE destino</label>${inp('subestacion_destino',d.subestacion_destino)}</div>
+    <div class="field"><label>Empresa constructora</label>${inp('empresa_constructora',d.empresa_constructora)}</div>
+    <div class="field full"><label>Observaciones</label><textarea id="ff-observaciones">${esc(d.observaciones||'')}</textarea></div>`;
+
+  document.getElementById('modal-ficha-body').innerHTML = `
+    <h2>Ficha técnica — ${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</h2>
+    <div class="form-grid">${fields}</div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-ficha')">Cancelar</button>
+      <button class="btn-primary" onclick="saveFicha('${proyId}','${tabla}','${!!f}')">Guardar ficha</button>
+    </div>`;
+  openM('modal-ficha');
+}
+
+async function saveFicha(proyId, tabla, exists) {
+  const fields = ['tipo_subestacion','nivel_tension_alta','nivel_tension_baja','potencia_mva',
+    'cant_transformadores','marca_transformador','tipo_barra','cant_bahias','sistema_proteccion',
+    'sistema_control','area_terreno_m2','empresa_constructora','empresa_supervision','norma_aplicable',
+    'tipo_red','nivel_tension','longitud_km','calibre_conductor','cant_circuitos','circuitos_nombres',
+    'cant_postes','tipo_estructura','zona_geografica','clientes_beneficiados',
+    'tipo_generacion','capacidad_mw','cantidad_unidades','marca_equipos','combustible',
+    'punto_interconexion','nivel_tension_kv','factor_planta',
+    'tipo_linea','subestacion_origen','subestacion_destino'];
+  const payload = {proyecto_id:proyId, observaciones:v('ff-observaciones')||null, updated_at:new Date().toISOString()};
+  fields.forEach(f=>{
+    const el=document.getElementById('ff-'+f);
+    if(!el) return;
+    const val=el.value.trim();
+    if(!val){payload[f]=null;return;}
+    payload[f]=['nivel_tension_alta','nivel_tension_baja','potencia_mva','cant_transformadores',
+      'cant_bahias','area_terreno_m2','nivel_tension','longitud_km','cant_circuitos','cant_postes',
+      'clientes_beneficiados','capacidad_mw','cantidad_unidades','nivel_tension_kv','factor_planta',
+      'cant_circuitos'].includes(f)?parseFloat(val):val;
+  });
+  const {error} = exists==='true'
+    ? await sb.from(tabla).update(payload).eq('proyecto_id',proyId)
+    : await sb.from(tabla).insert(payload);
+  if(error) return toast('Error: '+error.message,true);
+  closeM('modal-ficha');
+  toast('Ficha técnica guardada.');
+  nav('proyecto_detalle',{projectId:proyId,tab:3});
+}
+
+// ═══════════════════════════════════════════════════════
+// EVM + CURVA S
+// ═══════════════════════════════════════════════════════
+function renderTabEVM(p) {
+  loadEVM(p);
+  return `<div id="evm-content"><div class="loading-state"><span class="spinner"></span> Calculando EVM...</div></div>`;
+}
+
+async function loadEVM(p) {
+  const [{ data:updates },{ data:baseline }] = await Promise.all([
+    sb.from('actualizaciones').select('fecha,pct_obra,pct_proyecto,pct_financiero,ejecutado_hnl').eq('proyecto_id',p.id).order('fecha'),
+    sb.from('evm_linea_base').select('fecha,pv').eq('proyecto_id',p.id).order('fecha'),
+  ]);
+  const el = document.getElementById('evm-content');
+  if(!el) return;
+  const us = updates||[], bl = baseline||[];
+  const bac = p.inversion_usd||0;
+
+  // Build EVM data from updates
+  const evmData = us.map(u=>{
+    const ev = ((u.pct_obra||0)/100)*bac;
+    const ac = u.ejecutado_hnl||0;
+    const pv_match = bl.find(b=>b.fecha<=u.fecha);
+    const pv = pv_match ? pv_match.pv : ev;
+    return { fecha:u.fecha, ev, ac, pv, cpi: ac>0?ev/ac:null, spi: pv>0?ev/pv:null };
+  });
+
+  const latest = evmData[evmData.length-1]||{};
+  const cpi = latest.cpi ? latest.cpi.toFixed(2) : '—';
+  const spi = latest.spi ? latest.spi.toFixed(2) : '—';
+  const cpiColor = !latest.cpi?'var(--muted)':latest.cpi>=1?'var(--gd)':'var(--rd)';
+  const spiColor = !latest.spi?'var(--muted)':latest.spi>=1?'var(--gd)':'var(--rd)';
+
+  el.innerHTML = `
+    <div class="metric-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem">
+      <div class="metric-card"><div class="lbl">BAC (presupuesto)</div><div class="val">$${fmtNum(bac)}</div><div class="sub">Budget at Completion</div></div>
+      <div class="metric-card"><div class="lbl">EV actual</div><div class="val">$${fmtNum(latest.ev||0)}</div><div class="sub">Earned Value</div></div>
+      <div class="metric-card"><div class="lbl">CPI</div><div class="val" style="color:${cpiColor}">${cpi}</div><div class="sub">${!latest.cpi?'Sin datos':latest.cpi>=1?'Bajo presupuesto':'Sobre presupuesto'}</div></div>
+      <div class="metric-card"><div class="lbl">SPI</div><div class="val" style="color:${spiColor}">${spi}</div><div class="sub">${!latest.spi?'Sin datos':latest.spi>=1?'Adelantado':'Atrasado'}</div></div>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div class="card-title" style="margin:0">Curva S — Valor Planificado vs Ganado vs Real</div>
+        <button class="btn-ghost" style="font-size:12px" onclick="openEVMBaselineModal('${p.id}')">+ Agregar PV planificado</button>
+      </div>
+      ${evmData.length<2?`<div class="empty" style="border:none">Necesitas al menos 2 actualizaciones para graficar la curva S.<br>Registra actualizaciones semanales con el porcentaje de avance.</div>`
+      :`<div style="position:relative;height:300px"><canvas id="evm-chart"></canvas></div>`}
+    </div>
+    ${evmData.length>=2?`<script>
+    (function(){
+      const ctx = document.getElementById('evm-chart');
+      if(!ctx||window._evmChart) return;
+      window._evmChart = new Chart(ctx,{
+        type:'line',
+        data:{
+          labels:${JSON.stringify(evmData.map(d=>fmtDate(d.fecha)))},
+          datasets:[
+            {label:'PV — Planificado',data:${JSON.stringify(evmData.map(d=>Math.round(d.pv)))},borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.08)',tension:0.4,pointRadius:3},
+            {label:'EV — Ganado',data:${JSON.stringify(evmData.map(d=>Math.round(d.ev)))},borderColor:'#7F77DD',backgroundColor:'rgba(127,119,221,0.08)',tension:0.4,pointRadius:3},
+            {label:'AC — Real (HNL/25)',data:${JSON.stringify(evmData.map(d=>Math.round((d.ac||0)/25)))},borderColor:'#D85A30',backgroundColor:'rgba(216,90,48,0.08)',tension:0.4,borderDash:[5,3],pointRadius:3}
+          ]
+        },
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:12},boxWidth:12}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v.toLocaleString()}}}}
+      });
+    })();
+    <\/script>`:''}
+  `;
+}
+
+function openEVMBaselineModal(proyId) {
+  document.getElementById('modal-evm-body').innerHTML = `
+    <h2>Agregar PV planificado</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">El PV (Planned Value) es el costo acumulado planificado a una fecha dada. Define la línea base del cronograma financiero.</p>
+    <div class="field"><label>Fecha</label><input type="date" id="ev-fecha" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="field"><label>PV acumulado USD</label><input type="number" id="ev-pv" placeholder="Ej: 150000"></div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-evm')">Cancelar</button>
+      <button class="btn-primary" onclick="saveEVMBaseline('${proyId}')">Guardar</button>
+    </div>`;
+  openM('modal-evm');
+}
+
+async function saveEVMBaseline(proyId) {
+  const fecha=v('ev-fecha'), pv=parseFloat(document.getElementById('ev-pv').value||0);
+  if(!fecha||!pv) return toast('Completa todos los campos.',true);
+  const {error}=await sb.from('evm_linea_base').upsert({proyecto_id:proyId,fecha,pv},{onConflict:'proyecto_id,fecha'});
+  if(error) return toast('Error: '+error.message,true);
+  closeM('modal-evm');
+  toast('PV guardado.');
+  nav('proyecto_detalle',{projectId:proyId,tab:4});
+}
+
+// ═══════════════════════════════════════════════════════
+// MAPA DE PROYECTOS
+// ═══════════════════════════════════════════════════════
+async function renderMapa() {
+  const {data:projs} = await sb.from('proyectos').select('id,nombre,lat,lon,estado_general,tipo_proyecto,municipio,departamento,pct_ejecucion_obra').not('lat','is',null).not('lon','is',null);
+  const ps = (projs||[]).filter(p=>p.lat&&p.lon);
+  document.getElementById('topbar-actions').innerHTML = `<span style="font-size:12px;color:var(--muted)">${ps.length} proyectos con coordenadas</span>`;
+  document.getElementById('main-content').innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="map" style="height:520px;border-radius:12px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap;font-size:12px;color:var(--muted)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:50%;background:#7F77DD;display:inline-block"></span>Abierto</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:50%;background:#D85A30;display:inline-block"></span>En Riesgo</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:50%;background:#3B6D11;display:inline-block"></span>Cerrado</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:50%;background:#BA7517;display:inline-block"></span>Pausado</span>
+    </div>`;
+
+  setTimeout(()=>{
+    if(window._leafletMap) { window._leafletMap.remove(); window._leafletMap=null; }
+    const map = L.map('map').setView([14.8,-86.9],8);
+    window._leafletMap = map;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+    const colors={Abierto:'#7F77DD','En Riesgo':'#D85A30',Cerrado:'#3B6D11',Pausado:'#BA7517'};
+    ps.forEach(p=>{
+      const color=colors[p.estado_general]||'#888780';
+      const marker=L.circleMarker([parseFloat(p.lat),parseFloat(p.lon)],{
+        radius:10,fillColor:color,color:'#fff',weight:2,opacity:1,fillOpacity:0.9
+      }).addTo(map);
+      marker.bindPopup(`<strong>${p.nombre}</strong><br>
+        <span style="color:#666">${p.municipio||''}${p.departamento?', '+p.departamento:''}</span><br>
+        Estado: <strong>${p.estado_general||'—'}</strong><br>
+        Avance obra: <strong>${p.pct_ejecucion_obra||0}%</strong><br>
+        <a href="#" onclick="event.preventDefault();window._navFromMap('${p.id}')" style="color:#7F77DD">Ver detalle →</a>`);
+    });
+    window._navFromMap = (id) => nav('proyecto_detalle',{projectId:id});
+    if(ps.length) { const bounds=L.latLngBounds(ps.map(p=>[parseFloat(p.lat),parseFloat(p.lon)])); map.fitBounds(bounds,{padding:[30,30]}); }
+  },100);
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTACIÓN
+// ═══════════════════════════════════════════════════════
+async function exportarExcel(proyId=null) {
+  toast('Generando Excel...');
+  let url,filename;
+  if(proyId){
+    const {data:p}=await sb.from('proyectos').select('*').eq('id',proyId).single();
+    const {data:us}=await sb.from('actualizaciones').select('*').eq('proyecto_id',proyId).order('fecha');
+    const rows=[['Fecha','% Obra','% Proyecto','% Financiero','Ejecutado HNL','Notas','Alertas']];
+    (us||[]).forEach(u=>rows.push([u.fecha,u.pct_obra,u.pct_proyecto,u.pct_financiero,u.ejecutado_hnl,u.notas,u.alertas]));
+    const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    url=URL.createObjectURL(blob); filename=`actualizaciones_${p?.codigo||proyId}.csv`;
+  } else {
+    const {data:projs}=await sb.from('proyectos').select('*,profiles!proyectos_pm_id_fkey(full_name)').order('codigo');
+    const headers=['Código','Nombre','PM','Estado','Etapa','Tipo','% Obra','% Proyecto','% Financiero','Inversión USD','Ejecutado HNL','Departamento','Municipio','Fecha inicio plan.','Fecha fin plan.'];
+    const rows=[headers,...(projs||[]).map(p=>[p.codigo,p.nombre,p.profiles?.full_name,p.estado_general,p.estado_proyecto,p.tipo_proyecto,p.pct_ejecucion_obra,p.pct_avance_proyecto,p.pct_avance_financiero,p.inversion_usd,p.ejecutado_hnl,p.departamento,p.municipio,p.fecha_inicio_planificada,p.fecha_fin_planificada])];
+    const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    url=URL.createObjectURL(blob); filename='cartera_proyectos_PMO.csv';
+  }
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+  toast('Excel descargado.');
+}
+
+async function exportarPDF(proyId) {
+  const {data:p}=await sb.from('proyectos').select('*,profiles!proyectos_pm_id_fkey(full_name),portafolios(nombre)').eq('id',proyId).single();
+  if(!p) return;
+  const win=window.open('','_blank');
+  const logoData = document.getElementById('sidebar-logo-img')?.src||'';
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Ficha Proyecto — ${p.nombre}</title>
+  <style>
+    body{font-family:Arial,sans-serif;color:#1a1a18;padding:2rem;font-size:13px}
+    h1{font-size:18px;font-weight:600;margin-bottom:4px}
+    h2{font-size:14px;font-weight:600;border-bottom:1px solid #ccc;padding-bottom:4px;margin:1.5rem 0 .75rem}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #7F77DD}
+    table{width:100%;border-collapse:collapse;margin-bottom:1rem}
+    td{padding:5px 8px;border-bottom:1px solid #f0ede8;font-size:12px}
+    td:first-child{color:#666;width:40%}
+    .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:#EEEDFE;color:#534AB7}
+    .prog{background:#f0ede8;height:8px;border-radius:4px;overflow:hidden;margin-top:4px}
+    .prog-f{height:100%;background:#7F77DD;border-radius:4px}
+    @media print{body{padding:1rem}}
+  </style></head><body>
+  <div class="header">
+    ${logoData&&logoData.startsWith('data:')?`<img src="${logoData}" style="height:50px;object-fit:contain">`:'<div style="font-size:20px;font-weight:700;color:#7F77DD">⚡ PMO</div>'}
+    <div style="text-align:right"><div style="font-size:11px;color:#666">Ficha de proyecto</div><div style="font-size:11px;color:#666">${new Date().toLocaleDateString('es-HN')}</div></div>
+  </div>
+  <h1>${p.nombre}</h1>
+  <span class="badge">${p.estado_general||'—'}</span> &nbsp; <span style="color:#666;font-size:12px">${p.estado_proyecto||''}</span>
+  <h2>Información general</h2>
+  <table>
+    <tr><td>Código</td><td>${p.codigo||'—'}</td></tr>
+    <tr><td>PM Responsable</td><td>${p.profiles?.full_name||'—'}</td></tr>
+    <tr><td>Portafolio</td><td>${p.portafolios?.nombre||'—'}</td></tr>
+    <tr><td>Tipo de proyecto</td><td>${p.tipo_proyecto||'—'}</td></tr>
+    <tr><td>Ubicación</td><td>${p.municipio||'—'}, ${p.departamento||'—'}</td></tr>
+    <tr><td>Inversión USD</td><td>$${fmtNum(p.inversion_usd||0)}</td></tr>
+    <tr><td>Inicio planificado</td><td>${fmtDate(p.fecha_inicio_planificada)}</td></tr>
+    <tr><td>Fin planificado</td><td>${fmtDate(p.fecha_fin_planificada)}</td></tr>
+  </table>
+  <h2>Avance</h2>
+  <table>
+    <tr><td>% Ejecución obra</td><td>${p.pct_ejecucion_obra||0}%<div class="prog"><div class="prog-f" style="width:${p.pct_ejecucion_obra||0}%"></div></div></td></tr>
+    <tr><td>% Avance proyecto</td><td>${p.pct_avance_proyecto||0}%<div class="prog"><div class="prog-f" style="width:${p.pct_avance_proyecto||0}%;background:#0F6E56"></div></div></td></tr>
+    <tr><td>% Avance financiero</td><td>${p.pct_avance_financiero||0}%<div class="prog"><div class="prog-f" style="width:${p.pct_avance_financiero||0}%;background:#3B6D11"></div></div></td></tr>
+  </table>
+  ${p.descripcion?`<h2>Descripción</h2><p style="font-size:12px;color:#444">${p.descripcion}</p>`:''}
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
+
+// ═══════════════════════════════════════════════════════
+// CONFIGURACIÓN (solo coordinador)
+// ═══════════════════════════════════════════════════════
+async function renderConfiguracion() {
+  if(app.profile?.role!=='coordinador') {
+    document.getElementById('main-content').innerHTML=`<div class="empty">Acceso restringido. Solo el coordinador puede acceder a esta sección.</div>`;
+    return;
+  }
+  const [{data:listas},{data:personas}] = await Promise.all([
+    sb.from('config_listas').select('*').order('categoria').order('orden'),
+    sb.from('personas').select('*').order('nombre'),
+  ]);
+  const cats = [...new Set((listas||[]).map(l=>l.categoria))].filter(c=>c!=='logo');
+  const catLabels={tipo_proyecto:'Tipo de proyecto',estado_general:'Estado general',estado_proyecto:'Etapa del proyecto',naturaleza:'Naturaleza',complejidad:'Complejidad',unidad_negocio:'Unidad de negocio',zona_enee:'Zona ENEE'};
+  document.getElementById('topbar-actions').innerHTML=`<button class="btn-primary" onclick="openPersonaForm()">+ Nueva persona</button>`;
+  document.getElementById('main-content').innerHTML=`
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+
+      <div class="card">
+        <div class="section-head"><h2>Logo de la PMO</h2></div>
+        <div style="margin-bottom:1rem">
+          ${document.getElementById('sidebar-logo-img')?.style.display!=='none'?
+            `<img src="${document.getElementById('sidebar-logo-img').src}" style="max-height:60px;object-fit:contain;margin-bottom:8px;display:block">`:''}
+        </div>
+        <div class="field"><label>Subir nuevo logo (pega URL de imagen o base64)</label>
+          <input type="text" id="logo-url" placeholder="https://... o data:image/png;base64,...">
+        </div>
+        <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="saveLogo()">Guardar logo</button>
+      </div>
+
+      <div class="card">
+        <div class="section-head"><h2>Personas (PM, Sponsor, Líder)</h2>
+          <button class="btn-primary" onclick="openPersonaForm()" style="font-size:12px;padding:7px 12px">+ Nueva</button>
+        </div>
+        <div style="max-height:220px;overflow-y:auto">
+          ${!(personas||[]).length?'<div class="empty" style="border:none">Sin personas registradas.</div>':
+          (personas||[]).map(p=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)">
+              <div>
+                <div style="font-size:13px;font-weight:500">${esc(p.nombre)}</div>
+                <div style="font-size:11px;color:var(--muted)">${esc(p.cargo||'')} · ${(p.tipos||[]).join(', ')}</div>
+              </div>
+              <div class="action-row">
+                <button class="icon-btn" onclick="openPersonaForm('${p.id}')">✏️</button>
+                <button class="icon-btn del" onclick="deleteRecord('personas','${p.id}','configuracion')">🗑</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <div class="section-head"><h2>Listas desplegables</h2></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.5rem">
+        ${cats.map(cat=>`
+          <div>
+            <div style="font-size:13px;font-weight:500;margin-bottom:8px;color:var(--p)">${catLabels[cat]||cat}</div>
+            ${(listas||[]).filter(l=>l.categoria===cat).map(l=>`
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid var(--border)">
+                <span style="font-size:12px">${esc(l.valor)}</span>
+                <button class="icon-btn del" style="padding:2px 6px;font-size:11px" onclick="deleteListaItem('${l.id}')">×</button>
+              </div>`).join('')}
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <input type="text" id="new-${cat}" placeholder="Nuevo valor..." style="flex:1;padding:5px 8px;border:0.5px solid var(--border);border-radius:6px;font-size:12px">
+              <button class="btn-ghost" style="padding:5px 10px;font-size:12px" onclick="addListaItem('${cat}')">+</button>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function saveLogo() {
+  const url = v('logo-url');
+  if(!url) return toast('Ingresa una URL o imagen base64.',true);
+  await sb.from('config_listas').upsert({categoria:'logo',valor:url,activo:true},{onConflict:'categoria,valor'});
+  // Update displayed logos immediately
+  ['sidebar-logo-img','auth-logo-img'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.src=url;el.style.display='block';}
+  });
+  document.getElementById('sidebar-logo-txt')&&(document.getElementById('sidebar-logo-txt').style.display='none');
+  toast('Logo actualizado.');
+  nav('configuracion');
+}
+
+async function addListaItem(cat) {
+  const val = document.getElementById('new-'+cat)?.value.trim();
+  if(!val) return toast('Escribe un valor primero.',true);
+  const {error}=await sb.from('config_listas').insert({categoria:cat,valor:val,orden:99});
+  if(error) return toast('Error: '+error.message,true);
+  toast('Valor agregado.');
+  nav('configuracion');
+}
+
+async function deleteListaItem(id) {
+  if(!confirm('¿Eliminar este valor de lista?')) return;
+  await sb.from('config_listas').delete().eq('id',id);
+  toast('Eliminado.');
+  nav('configuracion');
+}
+
+async function openPersonaForm(id=null) {
+  let p={};
+  if(id){const{data}=await sb.from('personas').select('*').eq('id',id).single();p=data||{};}
+  const tipos=['pm','sponsor','lider'];
+  document.getElementById('modal-persona-body').innerHTML=`
+    <h2>${id?'Editar persona':'Nueva persona'}</h2>
+    <div class="field"><label>Nombre completo *</label><input type="text" id="pe-nombre" value="${esc(p.nombre||'')}"></div>
+    <div class="field"><label>Cargo</label><input type="text" id="pe-cargo" value="${esc(p.cargo||'')}"></div>
+    <div class="field"><label>Email</label><input type="email" id="pe-email" value="${esc(p.email||'')}"></div>
+    <div class="field"><label>Teléfono</label><input type="text" id="pe-telefono" value="${esc(p.telefono||'')}"></div>
+    <div class="field"><label>Roles</label>
+      <div style="display:flex;gap:12px;margin-top:4px">
+        ${tipos.map(t=>`<label style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:normal;color:var(--text)">
+          <input type="checkbox" id="pe-tipo-${t}" ${(p.tipos||[]).includes(t)?'checked':''}> ${t.toUpperCase()}
+        </label>`).join('')}
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-persona')">Cancelar</button>
+      <button class="btn-primary" onclick="savePersona('${id||''}')">Guardar</button>
+    </div>`;
+  openM('modal-persona');
+}
+
+async function savePersona(id='') {
+  const nombre=v('pe-nombre');
+  if(!nombre) return toast('El nombre es obligatorio.',true);
+  const tipos=['pm','sponsor','lider'].filter(t=>document.getElementById('pe-tipo-'+t)?.checked);
+  const payload={nombre,cargo:v('pe-cargo')||null,email:v('pe-email')||null,telefono:v('pe-telefono')||null,tipos};
+  const {error}=id?await sb.from('personas').update(payload).eq('id',id):await sb.from('personas').insert(payload);
+  if(error) return toast('Error: '+error.message,true);
+  closeM('modal-persona');
+  toast(id?'Persona actualizada.':'Persona creada.');
+  nav('configuracion');
+}
+
+// Cargar listas dinámicas desde config_listas para los formularios
+async function loadListas() {
+  if(window._listas) return window._listas;
+  const {data} = await sb.from('config_listas').select('categoria,valor').eq('activo',true).order('orden');
+  const listas={};
+  (data||[]).forEach(l=>{ if(!listas[l.categoria]) listas[l.categoria]=[]; listas[l.categoria].push(l.valor); });
+  window._listas = listas;
+  return listas;
+}
+
+// Exponer función para exportar desde topbar
+window.exportarExcel = exportarExcel;
+window.exportarPDF   = exportarPDF;
 
 // ═══════════════════════════════════════════════════════
 // START

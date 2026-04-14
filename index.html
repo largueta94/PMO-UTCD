@@ -668,7 +668,7 @@ function switchProjTab(i){
   document.querySelectorAll('#proj-tabs .tab-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
   const{p,updates,adqLinks,riesgos,interesados,permisos,fotos,visitas}=window._projDetail||{};
   const id=p?.id;const tc=document.getElementById('proj-tab-content');
-  if(i===0){tc.innerHTML=renderProjGeneral(p);}
+  if(i===0){tc.innerHTML=renderProjGeneral(p);initMiniMap();}
   else if(i===1){renderUpdatesTab(updates,id,p);}
   else if(i===2){tc.innerHTML=renderProjAdqs(adqLinks,id,p);}
   else if(i===3){tc.innerHTML=`<div class="section-head"><h2>EVM — Curva S</h2>${canEdit(p)?`<button class="btn-ghost" onclick="openEVM('${id}')">⚙ Gestionar datos</button>`:''}</div><div class="card"><canvas id="evm-canvas" height="120"></canvas></div>`;setTimeout(()=>renderEVMChart(id),100);}
@@ -1694,22 +1694,17 @@ async function doDelete(tabla,id){
   else render();
 }
 
-// ═══════════════════════════ MINI MAP ═══════════════════════════
-// Render mini map after page load if coordinates exist
-const _origSwitchProjTab=switchProjTab;
-function switchProjTab(i){
-  _origSwitchProjTab(i);
-  if(i===0){
-    setTimeout(()=>{
-      const{p}=window._projDetail||{};
-      if(p?.lat&&p?.lon&&document.getElementById('mini-map-div')){
-        if(window._miniMap){window._miniMap.remove();window._miniMap=null;}
-        const m=L.map('mini-map-div').setView([p.lat,p.lon],13);window._miniMap=m;
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(m);
-        L.circleMarker([p.lat,p.lon],{radius:10,fillColor:'#7F77DD',color:'#fff',weight:2,fillOpacity:.9}).addTo(m).bindPopup(p.nombre).openPopup();
-      }
-    },200);
-  }
+// Mini map se renderiza desde renderProjGeneral vía initMiniMap()
+function initMiniMap(){
+  setTimeout(()=>{
+    const{p}=window._projDetail||{};
+    if(p?.lat&&p?.lon&&document.getElementById('mini-map-div')){
+      if(window._miniMap){window._miniMap.remove();window._miniMap=null;}
+      const m=L.map('mini-map-div').setView([p.lat,p.lon],13);window._miniMap=m;
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(m);
+      L.circleMarker([p.lat,p.lon],{radius:10,fillColor:'#7F77DD',color:'#fff',weight:2,fillOpacity:.9}).addTo(m).bindPopup(p.nombre).openPopup();
+    }
+  },250);
 }
 </script>
 </body>

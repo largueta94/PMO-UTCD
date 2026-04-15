@@ -506,7 +506,14 @@ function exportarCSV(){
 // ═══════════════════════════ PROYECTO FORM ═══════════════════════════
 async function openProyectoForm(id=null){
   let p={};
-  if(id){const{data}=await sb.from('proyectos').select('*').eq('id',id).single();p=data||{};}
+if(id){
+  const { data, error } = await sb.from('proyectos').select('*').eq('id',id).single();
+  if(error){
+    console.error('Error cargando proyecto para editar:', id, error);
+    return toast('No se pudo abrir el proyecto para editar: ' + error.message, true);
+  }
+  p = data || {};
+}
   const[{data:profs},{data:ports},{data:progs},{data:personas}]=await Promise.all([
     sb.from('profiles').select('id,full_name').eq('activo',true),
     sb.from('portafolios').select('id,nombre'),

@@ -211,7 +211,7 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 const SURL='https://sucbihsncxcaytwixbfh.supabase.co';
 const SKEY='sb_publishable_xa1LYBqA7oRmLIvea7n1qQ_XjY-wWg9';
 const sb=supabase.createClient(SURL,SKEY);
-const app={user:null,profile:null,view:'dashboard',projectId:null,adqId:null,tab:0,lists:{},config:{}};
+const app={user:null,profile:null,teamPmIds:[],view:'dashboard',projectId:null,adqId:null,tab:0,lists:{},config:{}};
 
 const v=id=>(document.getElementById(id)||{}).value||'';
 const numv=id=>{const n=parseFloat(v(id));return isNaN(n)?null:n;};
@@ -270,9 +270,10 @@ function selDyn(id,val,cat,ph='— Seleccionar —'){
 const isCoord=()=>app.profile?.role==='coordinador';
 const isLider=()=>app.profile?.role==='lider';
 const canEdit=proj=>{
+  if(!proj)return false;
   if(isCoord())return true;
-  if(isLider())return proj&&proj.lider_id===app.profile?.id;
-  return proj&&proj.pm_id===app.profile?.id;
+  if(isLider())return proj.pm_id===app.profile?.id || app.teamPmIds.includes(proj.pm_id);
+  return proj.pm_id===app.profile?.id;
 };
 
 // ═══════════════════════════ AUTH ═══════════════════════════
@@ -308,6 +309,11 @@ async function doLogout(){await sb.auth.signOut();location.reload();}
 async function loadProfile(){
   const{data}=await sb.from('profiles').select('*').eq('id',app.user.id).single();
   app.profile=data||{role:'pm'};
+  app.teamPmIds=[];
+if(app.profile?.role==='lider'){
+  const{data:team}=await sb.from('profiles').select('id').eq('lider_id',app.profile.id).eq('activo',true);
+  app.teamPmIds=(team||[]).map(x=>x.id);
+}
   document.getElementById('sidebar-av').textContent=(app.profile.full_name||'?').charAt(0).toUpperCase();
   document.getElementById('sidebar-name').textContent=app.profile.full_name||app.user.email;
   document.getElementById('sidebar-role').textContent={coordinador:'Coordinador',lider:'Líder',pm:'PM'}[app.profile.role]||app.profile.role;

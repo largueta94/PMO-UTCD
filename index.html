@@ -172,6 +172,9 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
         <!-- ═══ FASE 2 · Gestión de Cambios (módulo principal) ═══ -->
         <button class="nav-item" data-view="cambios"         onclick="nav('cambios')"><span class="nav-icon">🔄</span>Gestión de cambios</button>
         <!-- ═══ FIN FASE 2 · Gestión de Cambios ═══ -->
+        <!-- ═══ FASE 3 · Timeline (módulo principal) ═══ -->
+        <button class="nav-item" data-view="timeline"        onclick="nav('timeline')"><span class="nav-icon">📅</span>Timeline</button>
+        <!-- ═══ FIN FASE 3 · Timeline ═══ -->
         <div class="nav-section">Organización</div>
         <button class="nav-item" data-view="equipo"      onclick="nav('equipo')"><span class="nav-icon">👥</span>Equipo</button>
         <div class="nav-section" id="nav-admin-sec" style="display:none">Admin</div>
@@ -213,6 +216,10 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 <div class="modal-wrap" id="modal-cambio"><div class="modal modal-lg" id="modal-cambio-body"></div></div>
 <div class="modal-wrap" id="modal-report-fields"><div class="modal modal-lg" id="modal-report-fields-body"></div></div>
 <!-- ═══ FIN FASE 2 · Modales nuevos ═══ -->
+<!-- ═══ FASE 3 · Modales nuevos ═══ -->
+<div class="modal-wrap" id="modal-edt"><div class="modal modal-lg" id="modal-edt-body"></div></div>
+<div class="modal-wrap" id="modal-hito"><div class="modal modal-lg" id="modal-hito-body"></div></div>
+<!-- ═══ FIN FASE 3 · Modales nuevos ═══ -->
 <script>
 // ═══════════════════════════ CONFIG & STATE ═══════════════════════════
 const SURL='https://sucbihsncxcaytwixbfh.supabase.co';
@@ -348,7 +355,7 @@ function nav(view,params={}){
   app.view=view;Object.assign(app,params);
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view||(view==='proyecto_detalle'&&el.dataset.view==='proyectos')));
   document.getElementById('topbar-actions').innerHTML='';
-  const titles={dashboard:'Dashboard',proyectos:'Proyectos',proyecto_detalle:'Detalle de proyecto',adquisiciones:'Adquisiciones',actualizaciones:'Actualizaciones',visitas:'Visitas técnicas',equipo:'Equipo',mapa:'Mapa de proyectos',configuracion:'Configuración',cambios:'Gestión de cambios'/* FASE 2 */};
+  const titles={dashboard:'Dashboard',proyectos:'Proyectos',proyecto_detalle:'Detalle de proyecto',adquisiciones:'Adquisiciones',actualizaciones:'Actualizaciones',visitas:'Visitas técnicas',equipo:'Equipo',mapa:'Mapa de proyectos',configuracion:'Configuración',cambios:'Gestión de cambios'/* FASE 2 */,timeline:'Timeline y hitos'/* FASE 3 */};
   document.getElementById('topbar-title').textContent=titles[view]||view;
   render();
 }
@@ -367,6 +374,8 @@ async function render(){
     case'configuracion':   await renderConfiguracion();break;
     /* ═══ FASE 2 · vista Gestión de Cambios ═══ */
     case'cambios':         await renderCambios();break;
+    /* ═══ FASE 3 · vista Timeline ═══ */
+    case'timeline':        await renderTimeline();break;
   }
 }
 
@@ -636,7 +645,8 @@ async function saveProyecto(id=''){
 async function renderProyectoDetalle(){
   const id=app.projectId;
   const[{data:p},{data:updates},{data:adqLinks},{data:riesgos},{data:interesados},{data:permisos},{data:fotos},{data:visitas},
-        /* FASE 2 */ {data:cambios}]=await Promise.all([
+        /* FASE 2 */ {data:cambios},
+        /* FASE 3 */ {data:edt},{data:hitos}]=await Promise.all([
     sb.from('proyectos').select('*,profiles!proyectos_pm_id_fkey(full_name),portafolios(nombre),programas(nombre)').eq('id',id).single(),
     sb.from('actualizaciones').select('*,profiles(full_name)').eq('proyecto_id',id).order('fecha',{ascending:false}),
     sb.from('proyecto_adquisicion').select('adquisicion_id,adquisiciones(*)').eq('proyecto_id',id),
@@ -646,10 +656,13 @@ async function renderProyectoDetalle(){
     sb.from('registro_fotografico').select('*').eq('proyecto_id',id).order('fecha',{ascending:false}),
     sb.from('visitas_tecnicas').select('*,proyectos(nombre)').eq('proyecto_id',id).order('fecha',{ascending:false}),
     /* ═══ FASE 2 · cambios del proyecto ═══ */
-    sb.from('cambios_proyecto').select('*').eq('proyecto_id',id).order('fecha_solicitud',{ascending:false})
+    sb.from('cambios_proyecto').select('*').eq('proyecto_id',id).order('fecha_solicitud',{ascending:false}),
+    /* ═══ FASE 3 · EDT e hitos del proyecto ═══ */
+    sb.from('edt_componentes').select('*').eq('proyecto_id',id).order('orden'),
+    sb.from('hitos_proyecto').select('*').eq('proyecto_id',id).order('fecha_planificada')
   ]);
   if(!p){document.getElementById('main-content').innerHTML='<div class="empty">Proyecto no encontrado.</div>';return;}
-  window._projDetail={p,updates:updates||[],adqLinks:adqLinks||[],riesgos:riesgos||[],interesados:interesados||[],permisos:permisos||[],fotos:fotos||[],visitas:visitas||[],cambios:cambios||[]/* FASE 2 */};
+  window._projDetail={p,updates:updates||[],adqLinks:adqLinks||[],riesgos:riesgos||[],interesados:interesados||[],permisos:permisos||[],fotos:fotos||[],visitas:visitas||[],cambios:cambios||[]/* FASE 2 */,edt:edt||[],hitos:hitos||[]/* FASE 3 */};
 
   const pctP=p.pct_avance_proyecto||0,pctO=p.pct_ejecucion_obra||0,pctF=p.pct_avance_financiero||0;
   const circleGauge=(pct,color)=>`<div style="position:relative;width:64px;height:64px;margin:0 auto">
@@ -665,7 +678,7 @@ async function renderProyectoDetalle(){
     <button class="btn-ghost" onclick="exportProyectoPDF('${id}')" title="Exportar PDF del proyecto (respeta campos configurados)">⬇ PDF proyecto</button>
     ${canEdit(p)?`<button class="btn-primary" onclick="openProyectoForm('${id}')">✏️ Editar</button>`:''}`;
 
-  const tabs=['General','Actualizaciones','Adquisiciones','EVM','Ficha Técnica','Riesgos','Interesados','Permisología','Fotografías','Visitas','Cambios'/* FASE 2 */];
+  const tabs=['General','Actualizaciones','Adquisiciones','EVM','Ficha Técnica','Riesgos','Interesados','Permisología','Fotografías','Visitas','Cambios'/* FASE 2 */,'EDT','Timeline'/* FASE 3 */];
   document.getElementById('main-content').innerHTML=`
     <div class="detail-header">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">
@@ -710,6 +723,9 @@ function switchProjTab(i){
   else if(i===9){tc.innerHTML=`<div class="section-head"><h2>Visitas técnicas</h2><button class="btn-primary" onclick="openVisitaForm(null,'${id}')">+ Agregar visita</button></div>${renderVisitasTable(visitas)}`;}
   /* ═══ FASE 2 · pestaña Cambios del proyecto ═══ */
   else if(i===10){renderCambiosTab(window._projDetail?.cambios||[],id,p);}
+  /* ═══ FASE 3 · pestañas EDT y Timeline ═══ */
+  else if(i===11){renderEDTTab(window._projDetail?.edt||[],id,p);}
+  else if(i===12){renderTimelineTab(window._projDetail?.hitos||[],id,p);}
 }
 
 function renderProjGeneral(p){
@@ -2533,6 +2549,559 @@ async function exportProyectoPDF(proyId){
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ═════════════════  FIN FASE 2  ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════  FASE 3 — EDT / WBS + TIMELINE / HITOS  ══════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ---- Mapeos de estado a clases de badge existentes ----
+const EDT_BADGE={
+  'Pendiente':'pendiente','En ejecución':'en_proceso','Completado':'aprobado',
+  'En pausa':'pausado','Bloqueado':'rechazado','No aplica':'cerrado'
+};
+const HITO_BADGE={
+  'Pendiente':'pendiente','En proceso':'en_proceso','Completado':'aprobado',
+  'Atrasado':'rechazado','Cancelado':'cerrado'
+};
+const CRITICIDAD_BADGE={'Baja':'activo','Media':'proceso','Alta':'pendiente','Crítica':'rechazado'};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 3 · EDT / WBS  (solo pestaña en detalle de proyecto)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Calcula avance ponderado sobre un array de componentes EDT.
+ *  Devuelve {pct, pesoTotal, countCompletado, countEjec, countBloq} */
+function computeEDTStats(items, onlyObra=false){
+  const arr=(items||[]).filter(c=>onlyObra?c.es_obra:true);
+  const pesoTotal=arr.reduce((s,c)=>s+(Number(c.peso)||0),0);
+  const sumPondAvance=arr.reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0);
+  const pct=pesoTotal>0?(sumPondAvance/pesoTotal):0;
+  return{
+    pct:Math.round(pct*10)/10,
+    pesoTotal:pesoTotal,
+    count:arr.length,
+    countCompletado:arr.filter(c=>c.estado==='Completado').length,
+    countEjec:arr.filter(c=>c.estado==='En ejecución').length,
+    countBloq:arr.filter(c=>c.estado==='Bloqueado').length
+  };
+}
+
+/** Ordena componentes EDT respetando jerarquía parent_id. */
+function sortEDT(items){
+  const byParent={};
+  (items||[]).forEach(c=>{
+    const k=c.parent_id||'__root__';
+    if(!byParent[k])byParent[k]=[];
+    byParent[k].push(c);
+  });
+  Object.keys(byParent).forEach(k=>{
+    byParent[k].sort((a,b)=>(a.orden||0)-(b.orden||0));
+  });
+  const result=[];
+  function walk(parentKey, depth){
+    (byParent[parentKey]||[]).forEach(c=>{
+      result.push({...c,_depth:depth});
+      walk(c.id, depth+1);
+    });
+  }
+  walk('__root__', 0);
+  // Agregar huérfanos (parent_id que no existe)
+  const includedIds=new Set(result.map(r=>r.id));
+  (items||[]).forEach(c=>{if(!includedIds.has(c.id))result.push({...c,_depth:0});});
+  return result;
+}
+
+function renderEDTTab(edt, proyId, p){
+  const tc=document.getElementById('proj-tab-content');
+  const total=computeEDTStats(edt,false);
+  const obra=computeEDTStats(edt,true);
+  const sorted=sortEDT(edt);
+
+  const barColor=(pct)=>pct>=80?'#639922':pct>=40?'var(--p)':'#BA7517';
+
+  tc.innerHTML=`
+    <div class="section-head">
+      <h2>EDT / WBS del proyecto</h2>
+      ${canEdit(p)?`<button class="btn-primary" onclick="openEDTForm(null,'${proyId}')">+ Agregar componente</button>`:''}
+    </div>
+
+    <div class="alert info" style="margin-bottom:1rem">
+      <span>ℹ️</span>
+      <div>Los avances de EDT son <strong>de referencia</strong> y no modifican los porcentajes manuales del proyecto (% avance proyecto / obra / financiero).</div>
+    </div>
+
+    <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:1rem">
+      <div class="metric-card">
+        <div class="lbl">Avance EDT ponderado</div>
+        <div class="val" style="color:${barColor(total.pct)}">${total.pct}<span style="font-size:16px">%</span></div>
+        <div class="sub">peso total: ${fmtNum(total.pesoTotal)}</div>
+      </div>
+      <div class="metric-card">
+        <div class="lbl">Avance EDT de obra</div>
+        <div class="val" style="color:${barColor(obra.pct)}">${obra.pct}<span style="font-size:16px">%</span></div>
+        <div class="sub">${obra.count} comp. de obra · peso ${fmtNum(obra.pesoTotal)}</div>
+      </div>
+      <div class="metric-card">
+        <div class="lbl">Componentes totales</div>
+        <div class="val">${total.count}</div>
+        <div class="sub">${total.countCompletado} completados · ${total.countEjec} en ejec.</div>
+      </div>
+      <div class="metric-card">
+        <div class="lbl">Bloqueados</div>
+        <div class="val" style="color:${total.countBloq?'var(--rd)':'var(--gd)'}">${total.countBloq}</div>
+        <div class="sub">requieren atención</div>
+      </div>
+    </div>
+
+    ${sorted.length?`<div class="table-wrap"><table>
+      <thead><tr>
+        <th>Código</th><th style="min-width:220px">Componente</th><th>Categoría</th>
+        <th style="text-align:center">Obra</th><th style="text-align:right">Peso</th>
+        <th style="min-width:130px">Avance</th><th>Estado</th><th>Responsable</th>
+        <th>Fin plan.</th><th></th>
+      </tr></thead>
+      <tbody>${sorted.map(c=>`<tr>
+        <td style="font-size:11px;color:var(--muted)">${esc(c.codigo||'—')}</td>
+        <td><div style="padding-left:${(c._depth||0)*16}px">${c._depth>0?'<span style="color:var(--hint);margin-right:4px">└</span>':''}<strong style="font-size:13px">${esc(c.nombre||'')}</strong>${c.descripcion?`<div style="font-size:11px;color:var(--muted);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.descripcion)}</div>`:''}</div></td>
+        <td style="font-size:12px">${esc(c.categoria||'—')}</td>
+        <td style="text-align:center">${c.es_obra?'<span title="Componente de obra física">🏗️</span>':'—'}</td>
+        <td style="text-align:right;font-size:12px">${fmtNum(c.peso||0)}</td>
+        <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${(c.avance||0)>=80?'green':(c.avance||0)>=40?'':'amber'}" style="width:${c.avance||0}%"></div></div><span class="prog-pct">${c.avance||0}%</span></div></td>
+        <td><span class="badge ${EDT_BADGE[c.estado]||'pendiente'}">${esc(c.estado||'—')}</span></td>
+        <td style="font-size:12px">${esc(c.responsable||'—')}</td>
+        <td style="font-size:11px;color:var(--muted)">${fmtDate(c.fecha_fin_plan)}</td>
+        <td class="action-row">
+          ${canEdit(p)?`<button class="icon-btn" onclick="openEDTForm('${c.id}','${proyId}')" title="Editar">✏️</button>`:''}
+          ${isCoord()?`<button class="icon-btn del" onclick="confirmDelete('edt_componentes','${c.id}')" title="Eliminar">🗑</button>`:''}
+        </td>
+      </tr>`).join('')}</tbody></table></div>`:`<div class="empty">Aún no se ha definido EDT para este proyecto. ${canEdit(p)?'Agrega el primer componente para comenzar.':''}</div>`}
+  `;
+}
+
+async function openEDTForm(id=null, proyId=null){
+  let c={};
+  if(id){
+    const{data}=await sb.from('edt_componentes').select('*').eq('id',id).single();
+    c=data||{};proyId=c.proyecto_id;
+  }
+  // Cargar posibles padres (componentes del mismo proyecto)
+  const{data:parents}=await sb.from('edt_componentes').select('id,codigo,nombre').eq('proyecto_id',proyId).order('orden');
+  const parentOpts=(parents||[]).filter(x=>x.id!==id).map(x=>`<option value="${x.id}"${x.id===c.parent_id?' selected':''}>${esc((x.codigo?x.codigo+' · ':'')+x.nombre)}</option>`).join('');
+
+  const selCat=(v)=>`<select id="edf-cat"><option value="">— Seleccionar —</option>${(app.lists['edt_categoria']||[]).map(o=>`<option${o===v?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  const selEstado=(v)=>`<select id="edf-estado">${(app.lists['edt_estado']||['Pendiente','En ejecución','Completado','En pausa','Bloqueado','No aplica']).map(o=>`<option${o===(v||'Pendiente')?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+
+  document.getElementById('modal-edt-body').innerHTML=`
+    <h2>${id?'✏️ Editar componente EDT':'➕ Nuevo componente EDT'}</h2>
+    <div class="form-grid">
+      <div class="field"><label>Código</label><input type="text" id="edf-cod" value="${esc(c.codigo||'')}" placeholder="1.1, 2.3..."></div>
+      <div class="field"><label>Componente padre (opcional)</label><select id="edf-parent"><option value="">— Raíz —</option>${parentOpts}</select></div>
+      <div class="field full"><label>Nombre *</label><input type="text" id="edf-nombre" value="${esc(c.nombre||'')}" placeholder="Nombre del componente"></div>
+      <div class="field full"><label>Descripción</label><textarea id="edf-desc" rows="2">${esc(c.descripcion||'')}</textarea></div>
+      <div class="field"><label>Categoría</label>${selCat(c.categoria||'')}</div>
+      <div class="field"><label>Tipo</label><input type="text" id="edf-tipo" value="${esc(c.tipo_componente||'')}" placeholder="Paquete, tarea, entregable..."></div>
+      <div class="field"><label>Peso (ponderación)</label><input type="number" id="edf-peso" value="${c.peso||0}" step="0.01" min="0"></div>
+      <div class="field"><label>Avance %</label><input type="number" id="edf-avance" value="${c.avance||0}" step="0.1" min="0" max="100"></div>
+      <div class="field"><label>Estado</label>${selEstado(c.estado)}</div>
+      <div class="field"><label>¿Es componente de obra?</label><div style="padding:7px 0"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px"><input type="checkbox" id="edf-obra" ${c.es_obra?'checked':''}> Sí, contar en avance de obra EDT</label></div></div>
+      <div class="field"><label>Responsable</label><input type="text" id="edf-resp" value="${esc(c.responsable||'')}"></div>
+      <div class="field"><label>Orden</label><input type="number" id="edf-orden" value="${c.orden||0}"></div>
+      <div class="field"><label>Inicio planificado</label><input type="date" id="edf-finiplan" value="${c.fecha_inicio_plan||''}"></div>
+      <div class="field"><label>Fin planificado</label><input type="date" id="edf-ffinplan" value="${c.fecha_fin_plan||''}"></div>
+      <div class="field"><label>Inicio real</label><input type="date" id="edf-finireal" value="${c.fecha_inicio_real||''}"></div>
+      <div class="field"><label>Fin real</label><input type="date" id="edf-ffinreal" value="${c.fecha_fin_real||''}"></div>
+      <div class="field full"><label>Observaciones</label><textarea id="edf-obs" rows="2">${esc(c.observaciones||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-edt')">Cancelar</button>
+      <button class="btn-primary" onclick="saveEDT('${id||''}','${proyId}')">💾 Guardar</button>
+    </div>`;
+  openM('modal-edt');
+}
+
+async function saveEDT(id, proyId){
+  const nombre=v('edf-nombre');
+  if(!nombre)return toast('El nombre es obligatorio.',true);
+  const avance=numv('edf-avance');
+  if(avance!==null&&(avance<0||avance>100))return toast('El avance debe estar entre 0 y 100.',true);
+  const payload={
+    proyecto_id: proyId,
+    parent_id: v('edf-parent')||null,
+    codigo: v('edf-cod')||null,
+    nombre: nombre,
+    descripcion: v('edf-desc')||null,
+    categoria: v('edf-cat')||null,
+    tipo_componente: v('edf-tipo')||null,
+    peso: numv('edf-peso')||0,
+    avance: avance||0,
+    estado: v('edf-estado')||'Pendiente',
+    es_obra: document.getElementById('edf-obra').checked,
+    responsable: v('edf-resp')||null,
+    orden: parseInt(v('edf-orden'))||0,
+    fecha_inicio_plan: v('edf-finiplan')||null,
+    fecha_fin_plan: v('edf-ffinplan')||null,
+    fecha_inicio_real: v('edf-finireal')||null,
+    fecha_fin_real: v('edf-ffinreal')||null,
+    observaciones: v('edf-obs')||null,
+    updated_at: new Date().toISOString()
+  };
+  const{error}=id
+    ? await sb.from('edt_componentes').update(payload).eq('id',id)
+    : await sb.from('edt_componentes').insert(payload);
+  if(error)return toast('Error: '+error.message,true);
+  closeM('modal-edt');toast(id?'Componente actualizado.':'Componente creado.');
+  nav('proyecto_detalle',{projectId:proyId});
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 4 · TIMELINE / HITOS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Calcula días restantes hasta una fecha (YYYY-MM-DD). Negativo = vencido. */
+function daysTo(dateStr){
+  if(!dateStr)return null;
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(dateStr+'T00:00:00');
+  return Math.round((d-today)/(1000*60*60*24));
+}
+
+/** Clasifica un hito en una de: vencido, proximo (<=14d), completado, normal. */
+function classifyHito(h){
+  if(h.estado==='Completado')return 'completado';
+  if(h.estado==='Cancelado')return 'cancelado';
+  const dt=daysTo(h.fecha_planificada);
+  if(dt===null)return 'normal';
+  if(dt<0)return 'vencido';
+  if(dt<=14)return 'proximo';
+  return 'normal';
+}
+
+// ────────────────  VISTA PRINCIPAL TIMELINE (sidebar)  ────────────────
+
+async function renderTimeline(){
+  const[{data:hitos},{data:projs},{data:portafolios},{data:programas}]=await Promise.all([
+    sb.from('hitos_proyecto').select('*,proyectos(id,nombre,codigo,pm_id,portafolio_id,programa_id)').order('fecha_planificada'),
+    sb.from('proyectos').select('id,nombre,codigo,portafolio_id,programa_id').order('nombre'),
+    sb.from('portafolios').select('id,nombre').order('nombre'),
+    sb.from('programas').select('id,nombre,portafolio_id').order('nombre')
+  ]);
+  window._tlHitos=hitos||[];
+  window._tlProjs=projs||[];
+
+  document.getElementById('topbar-actions').innerHTML='';
+
+  const criticidades=app.lists['hito_criticidad']||['Baja','Media','Alta','Crítica'];
+  const estados=app.lists['hito_estado']||['Pendiente','En proceso','Completado','Atrasado','Cancelado'];
+
+  document.getElementById('main-content').innerHTML=`
+    <div class="filter-bar">
+      <input type="text" id="tlf-search" placeholder="🔍 Buscar hito..." oninput="filterTimeline()" style="flex:1;min-width:160px">
+      <select id="tlf-proy" onchange="filterTimeline()"><option value="">Todos los proyectos</option>${(projs||[]).map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('')}</select>
+      <select id="tlf-porta" onchange="filterTimeline()"><option value="">Todos los portafolios</option>${(portafolios||[]).map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('')}</select>
+      <select id="tlf-prog" onchange="filterTimeline()"><option value="">Todos los programas</option>${(programas||[]).map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('')}</select>
+      <select id="tlf-estado" onchange="filterTimeline()"><option value="">Todos estados</option>${estados.map(e=>`<option>${e}</option>`).join('')}</select>
+      <select id="tlf-crit" onchange="filterTimeline()"><option value="">Toda criticidad</option>${criticidades.map(e=>`<option>${e}</option>`).join('')}</select>
+      <input type="date" id="tlf-desde" onchange="filterTimeline()" title="Desde">
+      <input type="date" id="tlf-hasta" onchange="filterTimeline()" title="Hasta">
+    </div>
+    <div id="tl-body"></div>`;
+  applyTimelineRender(window._tlHitos);
+}
+
+function filterTimeline(){
+  const s=(v('tlf-search')||'').toLowerCase();
+  const pid=v('tlf-proy'),porta=v('tlf-porta'),prog=v('tlf-prog'),est=v('tlf-estado'),crit=v('tlf-crit');
+  const d1=v('tlf-desde'),d2=v('tlf-hasta');
+  const arr=(window._tlHitos||[]).filter(h=>{
+    const proj=h.proyectos||{};
+    if(s&&!(h.nombre||'').toLowerCase().includes(s)&&!(proj.nombre||'').toLowerCase().includes(s))return false;
+    if(pid&&proj.id!==pid)return false;
+    if(porta&&proj.portafolio_id!==porta)return false;
+    if(prog&&proj.programa_id!==prog)return false;
+    if(est&&h.estado!==est)return false;
+    if(crit&&h.criticidad!==crit)return false;
+    if(d1&&(!h.fecha_planificada||h.fecha_planificada<d1))return false;
+    if(d2&&(!h.fecha_planificada||h.fecha_planificada>d2))return false;
+    return true;
+  });
+  applyTimelineRender(arr);
+}
+
+function applyTimelineRender(hitos){
+  const c={vencido:0,proximo:0,completado:0,critico:0};
+  (hitos||[]).forEach(h=>{
+    const cls=classifyHito(h);
+    if(cls==='vencido')c.vencido++;
+    if(cls==='proximo')c.proximo++;
+    if(cls==='completado')c.completado++;
+    if(h.criticidad==='Crítica'&&h.estado!=='Completado'&&h.estado!=='Cancelado')c.critico++;
+  });
+
+  const resumen=`
+    <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      <div class="metric-card"><div class="lbl">Vencidos</div><div class="val" style="color:${c.vencido?'var(--rd)':'var(--gd)'}">${c.vencido}</div><div class="sub">requieren acción</div></div>
+      <div class="metric-card"><div class="lbl">Próximos (≤14 días)</div><div class="val" style="color:${c.proximo?'var(--ad)':'var(--gd)'}">${c.proximo}</div><div class="sub">por planear</div></div>
+      <div class="metric-card"><div class="lbl">Completados</div><div class="val" style="color:var(--gd)">${c.completado}</div><div class="sub">del total visible</div></div>
+      <div class="metric-card"><div class="lbl">Críticos activos</div><div class="val" style="color:${c.critico?'var(--rd)':'var(--text)'}">${c.critico}</div><div class="sub">criticidad alta/crítica</div></div>
+    </div>`;
+
+  const tl=renderTimelineGraph(hitos||[]);
+  const tabla=renderTimelineTable(hitos||[]);
+  document.getElementById('tl-body').innerHTML=resumen+tl+tabla;
+}
+
+/** Timeline gráfico: tarjetas agrupadas por mes (escala mensual). */
+function renderTimelineGraph(hitos){
+  if(!hitos.length)return `<div class="empty">Sin hitos que coincidan con los filtros.</div>`;
+  // Agrupar por año-mes de fecha_planificada
+  const groups={};
+  const sin=[];
+  hitos.forEach(h=>{
+    if(!h.fecha_planificada){sin.push(h);return;}
+    const k=h.fecha_planificada.substring(0,7); // YYYY-MM
+    if(!groups[k])groups[k]=[];
+    groups[k].push(h);
+  });
+  const keys=Object.keys(groups).sort();
+  if(!keys.length&&!sin.length)return '';
+
+  const monthLabel=(k)=>{
+    const [y,m]=k.split('-');
+    const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `${names[parseInt(m,10)-1]} ${y}`;
+  };
+
+  const dotColor=(cls,crit)=>{
+    if(cls==='completado')return '#639922';
+    if(cls==='vencido')return '#A32D2D';
+    if(cls==='proximo')return '#BA7517';
+    if(cls==='cancelado')return '#9A9991';
+    if(crit==='Crítica')return '#A32D2D';
+    if(crit==='Alta')return '#BA7517';
+    return 'var(--p)';
+  };
+
+  const cards=keys.map(k=>{
+    const items=groups[k].sort((a,b)=>(a.fecha_planificada||'').localeCompare(b.fecha_planificada||''));
+    return `<div style="min-width:260px;background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:12px;flex-shrink:0">
+      <div style="font-size:11px;font-weight:600;color:var(--pd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;border-bottom:0.5px solid var(--border);padding-bottom:6px">${monthLabel(k)} · ${items.length}</div>
+      ${items.map(h=>{
+        const cls=classifyHito(h);
+        const col=dotColor(cls,h.criticidad);
+        return `<div style="padding:7px 0;border-bottom:0.5px dashed var(--border);cursor:pointer" onclick="nav('proyecto_detalle',{projectId:'${(h.proyectos||{}).id||''}'})">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">
+            <span style="width:9px;height:9px;border-radius:50%;background:${col};flex-shrink:0"></span>
+            <strong style="font-size:12px;line-height:1.2">${esc(h.nombre||'Sin nombre')}</strong>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-left:15px">📁 ${esc((h.proyectos||{}).nombre||'—')}</div>
+          <div style="font-size:10px;color:var(--muted);margin-left:15px">📅 ${fmtDate(h.fecha_planificada)}${h.fecha_real?' · real: '+fmtDate(h.fecha_real):''}</div>
+          ${h.criticidad&&h.criticidad!=='Media'?`<span class="badge ${CRITICIDAD_BADGE[h.criticidad]||'activo'}" style="font-size:10px;margin-left:15px;margin-top:3px">${esc(h.criticidad)}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  return `<div class="card" style="margin-bottom:1rem"><div class="card-title">Cronograma mensual</div>
+    <div style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px">${cards}</div>
+    ${sin.length?`<div style="margin-top:10px;font-size:11px;color:var(--hint)">Hay ${sin.length} hito(s) sin fecha planificada definida.</div>`:''}
+  </div>`;
+}
+
+function renderTimelineTable(hitos){
+  if(!hitos.length)return '';
+  return `<div class="card"><div class="card-title">Listado completo</div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Hito</th><th>Proyecto</th><th>Categoría</th>
+        <th>Fecha plan.</th><th>Fecha real</th><th>Estado</th><th>Criticidad</th><th>Responsable</th><th style="text-align:center">Días</th>
+      </tr></thead>
+      <tbody>${hitos.map(h=>{
+        const cls=classifyHito(h);
+        const proj=h.proyectos||{};
+        const dt=daysTo(h.fecha_planificada);
+        const dtStr=dt===null?'—':dt<0?`<span style="color:var(--rd);font-weight:600">${dt}</span>`:dt<=7?`<span style="color:var(--ad);font-weight:600">${dt}</span>`:`<span style="color:var(--muted)">${dt}</span>`;
+        const sem=cls==='vencido'?'🔴':cls==='proximo'?'🟠':cls==='completado'?'🟢':'⚪';
+        return `<tr>
+          <td>${sem} <strong style="font-size:13px">${esc(h.nombre||'')}</strong></td>
+          <td style="font-size:12px"><a class="link-btn" style="text-decoration:none" onclick="nav('proyecto_detalle',{projectId:'${proj.id||''}'})">${esc(proj.nombre||'—')}</a></td>
+          <td style="font-size:12px">${esc(h.categoria||'—')}</td>
+          <td style="font-size:12px">${fmtDate(h.fecha_planificada)}</td>
+          <td style="font-size:12px">${fmtDate(h.fecha_real)}</td>
+          <td><span class="badge ${HITO_BADGE[h.estado]||'pendiente'}">${esc(h.estado||'—')}</span></td>
+          <td><span class="badge ${CRITICIDAD_BADGE[h.criticidad]||'activo'}">${esc(h.criticidad||'—')}</span></td>
+          <td style="font-size:12px">${esc(h.responsable||'—')}</td>
+          <td style="text-align:center;font-size:12px">${dtStr}</td>
+        </tr>`;
+      }).join('')}</tbody></table></div></div>`;
+}
+
+// ────────────────  PESTAÑA TIMELINE EN DETALLE DE PROYECTO  ────────────────
+
+function renderTimelineTab(hitos, proyId, p){
+  const tc=document.getElementById('proj-tab-content');
+  const c={vencido:0,proximo:0,completado:0,total:hitos.length};
+  hitos.forEach(h=>{
+    const cls=classifyHito(h);
+    if(cls==='vencido')c.vencido++;
+    if(cls==='proximo')c.proximo++;
+    if(cls==='completado')c.completado++;
+  });
+
+  const sorted=[...hitos].sort((a,b)=>(a.fecha_planificada||'9999').localeCompare(b.fecha_planificada||'9999'));
+
+  tc.innerHTML=`
+    <div class="section-head">
+      <h2>Timeline y hitos del proyecto</h2>
+      ${canEdit(p)?`<button class="btn-primary" onclick="openHitoForm(null,'${proyId}')">+ Agregar hito</button>`:''}
+    </div>
+
+    <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:1rem">
+      <div class="metric-card"><div class="lbl">Total hitos</div><div class="val">${c.total}</div></div>
+      <div class="metric-card"><div class="lbl">Vencidos</div><div class="val" style="color:${c.vencido?'var(--rd)':'var(--gd)'}">${c.vencido}</div></div>
+      <div class="metric-card"><div class="lbl">Próximos (≤14 días)</div><div class="val" style="color:${c.proximo?'var(--ad)':'var(--gd)'}">${c.proximo}</div></div>
+      <div class="metric-card"><div class="lbl">Completados</div><div class="val" style="color:var(--gd)">${c.completado}</div></div>
+    </div>
+
+    ${sorted.length?`
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">Línea cronológica</div>
+      ${renderVerticalTimeline(sorted,p,proyId)}
+    </div>
+
+    <div class="card"><div class="card-title">Listado</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Hito</th><th>Categoría</th><th>Fecha plan.</th><th>Fecha real</th><th>Estado</th><th>Criticidad</th><th>Responsable</th><th style="text-align:center">Días</th><th></th></tr></thead>
+        <tbody>${sorted.map(h=>{
+          const cls=classifyHito(h);
+          const dt=daysTo(h.fecha_planificada);
+          const dtStr=dt===null?'—':dt<0?`<span style="color:var(--rd);font-weight:600">${dt}</span>`:dt<=7?`<span style="color:var(--ad);font-weight:600">${dt}</span>`:dt;
+          const sem=cls==='vencido'?'🔴':cls==='proximo'?'🟠':cls==='completado'?'🟢':'⚪';
+          return `<tr>
+            <td>${sem} <strong style="font-size:13px">${esc(h.nombre||'')}</strong>${h.descripcion?`<div style="font-size:11px;color:var(--muted);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.descripcion)}</div>`:''}</td>
+            <td style="font-size:12px">${esc(h.categoria||'—')}</td>
+            <td style="font-size:12px">${fmtDate(h.fecha_planificada)}</td>
+            <td style="font-size:12px">${fmtDate(h.fecha_real)}</td>
+            <td><span class="badge ${HITO_BADGE[h.estado]||'pendiente'}">${esc(h.estado||'—')}</span></td>
+            <td><span class="badge ${CRITICIDAD_BADGE[h.criticidad]||'activo'}">${esc(h.criticidad||'—')}</span></td>
+            <td style="font-size:12px">${esc(h.responsable||'—')}</td>
+            <td style="text-align:center;font-size:12px">${dtStr}</td>
+            <td class="action-row">
+              ${canEdit(p)?`<button class="icon-btn" onclick="openHitoForm('${h.id}','${proyId}')">✏️</button>`:''}
+              ${isCoord()?`<button class="icon-btn del" onclick="confirmDelete('hitos_proyecto','${h.id}')">🗑</button>`:''}
+            </td>
+          </tr>`;
+        }).join('')}</tbody></table></div>
+    </div>`:`<div class="empty">Este proyecto aún no tiene hitos registrados.${canEdit(p)?' Agrega el primer hito para empezar a construir la línea de tiempo.':''}</div>`}
+  `;
+}
+
+/** Línea vertical de tiempo sencilla y elegante, ordenada por fecha. */
+function renderVerticalTimeline(sorted, p, proyId){
+  const dotColor=(cls,crit)=>{
+    if(cls==='completado')return '#639922';
+    if(cls==='vencido')return '#A32D2D';
+    if(cls==='proximo')return '#BA7517';
+    if(cls==='cancelado')return '#9A9991';
+    if(crit==='Crítica')return '#A32D2D';
+    if(crit==='Alta')return '#BA7517';
+    return '#7F77DD';
+  };
+  return `<div style="position:relative;padding-left:28px">
+    <div style="position:absolute;left:12px;top:6px;bottom:6px;width:2px;background:linear-gradient(to bottom,var(--border),var(--border) 98%,transparent)"></div>
+    ${sorted.map(h=>{
+      const cls=classifyHito(h);
+      const col=dotColor(cls,h.criticidad);
+      const dt=daysTo(h.fecha_planificada);
+      const dtTxt=dt===null?'':dt<0?`(vencido hace ${-dt} días)`:dt===0?'(hoy)':`(en ${dt} días)`;
+      return `<div style="position:relative;padding:10px 0 10px 0">
+        <span style="position:absolute;left:-22px;top:12px;width:12px;height:12px;border-radius:50%;background:${col};border:2px solid var(--card);box-shadow:0 0 0 2px ${col}"></span>
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+          <div style="flex:1;min-width:200px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <strong style="font-size:13px">${esc(h.nombre||'')}</strong>
+              <span class="badge ${HITO_BADGE[h.estado]||'pendiente'}">${esc(h.estado||'—')}</span>
+              ${h.criticidad&&h.criticidad!=='Media'?`<span class="badge ${CRITICIDAD_BADGE[h.criticidad]||'activo'}">${esc(h.criticidad)}</span>`:''}
+            </div>
+            ${h.descripcion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(h.descripcion)}</div>`:''}
+          </div>
+          <div style="text-align:right;font-size:12px;color:var(--muted);min-width:180px">
+            <div>📅 plan: <strong style="color:var(--text)">${fmtDate(h.fecha_planificada)}</strong> <span style="color:var(--hint);font-size:11px">${dtTxt}</span></div>
+            ${h.fecha_real?`<div>✅ real: <strong style="color:var(--gd)">${fmtDate(h.fecha_real)}</strong></div>`:''}
+            ${h.responsable?`<div style="font-size:11px">👤 ${esc(h.responsable)}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ────────────────  FORMULARIO DE HITO  ────────────────
+
+async function openHitoForm(id=null, proyId=null){
+  let h={};
+  if(id){
+    const{data}=await sb.from('hitos_proyecto').select('*').eq('id',id).single();
+    h=data||{};proyId=h.proyecto_id;
+  }
+  const selCat=(v)=>`<select id="hf-cat"><option value="">— Seleccionar —</option>${(app.lists['hito_categoria']||[]).map(o=>`<option${o===v?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  const selEst=(v)=>`<select id="hf-estado">${(app.lists['hito_estado']||['Pendiente','En proceso','Completado','Atrasado','Cancelado']).map(o=>`<option${o===(v||'Pendiente')?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  const selCrit=(v)=>`<select id="hf-crit">${(app.lists['hito_criticidad']||['Baja','Media','Alta','Crítica']).map(o=>`<option${o===(v||'Media')?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+
+  document.getElementById('modal-hito-body').innerHTML=`
+    <h2>${id?'✏️ Editar hito':'➕ Nuevo hito'}</h2>
+    <div class="form-grid">
+      <div class="field full"><label>Nombre del hito *</label><input type="text" id="hf-nombre" value="${esc(h.nombre||'')}" placeholder="Ej. Energización, Acta de recepción..."></div>
+      <div class="field full"><label>Descripción</label><textarea id="hf-desc" rows="2">${esc(h.descripcion||'')}</textarea></div>
+      <div class="field"><label>Categoría</label>${selCat(h.categoria||'')}</div>
+      <div class="field"><label>Criticidad</label>${selCrit(h.criticidad)}</div>
+      <div class="field"><label>Fecha planificada</label><input type="date" id="hf-fplan" value="${h.fecha_planificada||''}"></div>
+      <div class="field"><label>Fecha real</label><input type="date" id="hf-freal" value="${h.fecha_real||''}"></div>
+      <div class="field"><label>Estado</label>${selEst(h.estado)}</div>
+      <div class="field"><label>Responsable</label><input type="text" id="hf-resp" value="${esc(h.responsable||'')}"></div>
+      <div class="field"><label>Dependencia</label><input type="text" id="hf-dep" value="${esc(h.dependencia||'')}" placeholder="Opcional"></div>
+      <div class="field"><label>Orden</label><input type="number" id="hf-orden" value="${h.orden||0}"></div>
+      <div class="field full"><label>Observaciones</label><textarea id="hf-obs" rows="2">${esc(h.observaciones||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-hito')">Cancelar</button>
+      <button class="btn-primary" onclick="saveHito('${id||''}','${proyId}')">💾 Guardar</button>
+    </div>`;
+  openM('modal-hito');
+}
+
+async function saveHito(id, proyId){
+  const nombre=v('hf-nombre');
+  if(!nombre)return toast('El nombre es obligatorio.',true);
+  const payload={
+    proyecto_id: proyId,
+    nombre: nombre,
+    descripcion: v('hf-desc')||null,
+    categoria: v('hf-cat')||null,
+    fecha_planificada: v('hf-fplan')||null,
+    fecha_real: v('hf-freal')||null,
+    estado: v('hf-estado')||'Pendiente',
+    criticidad: v('hf-crit')||'Media',
+    responsable: v('hf-resp')||null,
+    dependencia: v('hf-dep')||null,
+    orden: parseInt(v('hf-orden'))||0,
+    observaciones: v('hf-obs')||null,
+    updated_at: new Date().toISOString()
+  };
+  const{error}=id
+    ? await sb.from('hitos_proyecto').update(payload).eq('id',id)
+    : await sb.from('hitos_proyecto').insert(payload);
+  if(error)return toast('Error: '+error.message,true);
+  closeM('modal-hito');toast(id?'Hito actualizado.':'Hito creado.');
+  // Recargar donde corresponda
+  if(app.view==='timeline')render();
+  else nav('proyecto_detalle',{projectId:proyId});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════  FIN FASE 3  ═════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Mini map se renderiza desde renderProjGeneral vía initMiniMap()

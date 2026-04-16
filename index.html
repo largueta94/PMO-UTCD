@@ -169,6 +169,9 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
         <button class="nav-item" data-view="actualizaciones" onclick="nav('actualizaciones')"><span class="nav-icon">📝</span>Actualizaciones</button>
         <button class="nav-item" data-view="visitas"         onclick="nav('visitas')"><span class="nav-icon">🏗️</span>Visitas técnicas</button>
         <button class="nav-item" data-view="mapa"            onclick="nav('mapa')"><span class="nav-icon">🗺️</span>Mapa de proyectos</button>
+        <!-- ═══ FASE 2 · Gestión de Cambios (módulo principal) ═══ -->
+        <button class="nav-item" data-view="cambios"         onclick="nav('cambios')"><span class="nav-icon">🔄</span>Gestión de cambios</button>
+        <!-- ═══ FIN FASE 2 · Gestión de Cambios ═══ -->
         <div class="nav-section">Organización</div>
         <button class="nav-item" data-view="equipo"      onclick="nav('equipo')"><span class="nav-icon">👥</span>Equipo</button>
         <div class="nav-section" id="nav-admin-sec" style="display:none">Admin</div>
@@ -206,6 +209,10 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 <div class="modal-wrap" id="modal-interesado"><div class="modal" id="modal-interesado-body"></div></div>
 <div class="modal-wrap" id="modal-permiso"><div class="modal" id="modal-permiso-body"></div></div>
 <div class="modal-wrap" id="modal-foto"><div class="modal" id="modal-foto-body"></div></div>
+<!-- ═══ FASE 2 · Modales nuevos ═══ -->
+<div class="modal-wrap" id="modal-cambio"><div class="modal modal-lg" id="modal-cambio-body"></div></div>
+<div class="modal-wrap" id="modal-report-fields"><div class="modal modal-lg" id="modal-report-fields-body"></div></div>
+<!-- ═══ FIN FASE 2 · Modales nuevos ═══ -->
 <script>
 // ═══════════════════════════ CONFIG & STATE ═══════════════════════════
 const SURL='https://sucbihsncxcaytwixbfh.supabase.co';
@@ -341,7 +348,7 @@ function nav(view,params={}){
   app.view=view;Object.assign(app,params);
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view||(view==='proyecto_detalle'&&el.dataset.view==='proyectos')));
   document.getElementById('topbar-actions').innerHTML='';
-  const titles={dashboard:'Dashboard',proyectos:'Proyectos',proyecto_detalle:'Detalle de proyecto',adquisiciones:'Adquisiciones',actualizaciones:'Actualizaciones',visitas:'Visitas técnicas',equipo:'Equipo',mapa:'Mapa de proyectos',configuracion:'Configuración'};
+  const titles={dashboard:'Dashboard',proyectos:'Proyectos',proyecto_detalle:'Detalle de proyecto',adquisiciones:'Adquisiciones',actualizaciones:'Actualizaciones',visitas:'Visitas técnicas',equipo:'Equipo',mapa:'Mapa de proyectos',configuracion:'Configuración',cambios:'Gestión de cambios'/* FASE 2 */};
   document.getElementById('topbar-title').textContent=titles[view]||view;
   render();
 }
@@ -358,6 +365,8 @@ async function render(){
     case'equipo':          await renderEquipo();break;
     case'mapa':            await renderMapa();break;
     case'configuracion':   await renderConfiguracion();break;
+    /* ═══ FASE 2 · vista Gestión de Cambios ═══ */
+    case'cambios':         await renderCambios();break;
   }
 }
 
@@ -432,17 +441,21 @@ function applyDashFilters(){
 
 async function exportDashPDF(){
   const{jsPDF}=window.jspdf;const doc=new jsPDF();
-  const sysName=app.config.system_name||'PMO SGP';
-  doc.setFillColor(127,119,221);doc.rect(0,0,210,18,'F');
-  doc.setTextColor(255);doc.setFontSize(14);doc.text(sysName,15,12);
-  doc.setFontSize(9);doc.text('DASHBOARD',195,12,{align:'right'});
+  /* FASE 2 · usa helpers de branding */
+  addPdfHeader(doc,'DASHBOARD');
+  addPdfWatermark(doc,true);
   doc.setTextColor(30);
-  const ps=window._dashProjs||[];let y=26;
-  doc.setFontSize(10);doc.text(`Total: ${ps.length} | Activos: ${ps.filter(p=>p.estado_general==='Abierto').length} | En riesgo: ${ps.filter(p=>p.estado_general==='En Riesgo').length}`,15,y);y+=6;
-  doc.text(`Inversión total: $${fmtNum(ps.reduce((s,p)=>s+(p.inversion_usd||0),0))}`,15,y);y+=10;
-  doc.setFontSize(9);doc.setTextColor(80);
-  ps.slice(0,50).forEach(p=>{if(y>280){doc.addPage();y=20;}doc.text(`• ${(p.nombre||'').substring(0,55)} — ${p.estado_general||''} — ${p.pct_ejecucion_obra||0}%`,15,y);y+=5;});
-  doc.setFontSize(8);doc.setTextColor(150);doc.text(`Generado: ${new Date().toLocaleString('es-HN')}`,15,287);
+  const ps=window._dashProjs||[];let y=30;
+  const enabled=getEnabledReportFields('reporte_dashboard');
+  if(enabled.metricas_globales!==false){
+    doc.setFontSize(10);doc.text(`Total: ${ps.length} | Activos: ${ps.filter(p=>p.estado_general==='Abierto').length} | En riesgo: ${ps.filter(p=>p.estado_general==='En Riesgo').length}`,15,y);y+=6;
+    doc.text(`Inversión total: $${fmtNum(ps.reduce((s,p)=>s+(p.inversion_usd||0),0))}`,15,y);y+=10;
+  }
+  if(enabled.listado_proyectos!==false){
+    doc.setFontSize(9);doc.setTextColor(80);
+    ps.slice(0,50).forEach(p=>{if(y>280){doc.addPage();addPdfWatermark(doc,false);y=20;}doc.text(`• ${(p.nombre||'').substring(0,55)} — ${p.estado_general||''} — ${p.pct_ejecucion_obra||0}%`,15,y);y+=5;});
+  }
+  addPdfFooter(doc);
   doc.save('dashboard_pmo.pdf');
 }
 
@@ -622,7 +635,8 @@ async function saveProyecto(id=''){
 // ═══════════════════════════ PROYECTO DETAIL ═══════════════════════════
 async function renderProyectoDetalle(){
   const id=app.projectId;
-  const[{data:p},{data:updates},{data:adqLinks},{data:riesgos},{data:interesados},{data:permisos},{data:fotos},{data:visitas}]=await Promise.all([
+  const[{data:p},{data:updates},{data:adqLinks},{data:riesgos},{data:interesados},{data:permisos},{data:fotos},{data:visitas},
+        /* FASE 2 */ {data:cambios}]=await Promise.all([
     sb.from('proyectos').select('*,profiles!proyectos_pm_id_fkey(full_name),portafolios(nombre),programas(nombre)').eq('id',id).single(),
     sb.from('actualizaciones').select('*,profiles(full_name)').eq('proyecto_id',id).order('fecha',{ascending:false}),
     sb.from('proyecto_adquisicion').select('adquisicion_id,adquisiciones(*)').eq('proyecto_id',id),
@@ -630,10 +644,12 @@ async function renderProyectoDetalle(){
     sb.from('interesados_proyecto').select('*').eq('proyecto_id',id),
     sb.from('permisos_proyecto').select('*').eq('proyecto_id',id).order('tipo_permiso'),
     sb.from('registro_fotografico').select('*').eq('proyecto_id',id).order('fecha',{ascending:false}),
-    sb.from('visitas_tecnicas').select('*,proyectos(nombre)').eq('proyecto_id',id).order('fecha',{ascending:false})
+    sb.from('visitas_tecnicas').select('*,proyectos(nombre)').eq('proyecto_id',id).order('fecha',{ascending:false}),
+    /* ═══ FASE 2 · cambios del proyecto ═══ */
+    sb.from('cambios_proyecto').select('*').eq('proyecto_id',id).order('fecha_solicitud',{ascending:false})
   ]);
   if(!p){document.getElementById('main-content').innerHTML='<div class="empty">Proyecto no encontrado.</div>';return;}
-  window._projDetail={p,updates:updates||[],adqLinks:adqLinks||[],riesgos:riesgos||[],interesados:interesados||[],permisos:permisos||[],fotos:fotos||[],visitas:visitas||[]};
+  window._projDetail={p,updates:updates||[],adqLinks:adqLinks||[],riesgos:riesgos||[],interesados:interesados||[],permisos:permisos||[],fotos:fotos||[],visitas:visitas||[],cambios:cambios||[]/* FASE 2 */};
 
   const pctP=p.pct_avance_proyecto||0,pctO=p.pct_ejecucion_obra||0,pctF=p.pct_avance_financiero||0;
   const circleGauge=(pct,color)=>`<div style="position:relative;width:64px;height:64px;margin:0 auto">
@@ -648,7 +664,7 @@ async function renderProyectoDetalle(){
     <button class="btn-ghost" onclick="nav('proyectos')">← Proyectos</button>
     ${canEdit(p)?`<button class="btn-primary" onclick="openProyectoForm('${id}')">✏️ Editar</button>`:''}`;
 
-  const tabs=['General','Actualizaciones','Adquisiciones','EVM','Ficha Técnica','Riesgos','Interesados','Permisología','Fotografías','Visitas'];
+  const tabs=['General','Actualizaciones','Adquisiciones','EVM','Ficha Técnica','Riesgos','Interesados','Permisología','Fotografías','Visitas','Cambios'/* FASE 2 */];
   document.getElementById('main-content').innerHTML=`
     <div class="detail-header">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">
@@ -691,6 +707,8 @@ function switchProjTab(i){
   else if(i===7){renderPermisosTab(permisos,id,p);}
   else if(i===8){renderFotosTab(fotos,id,p);}
   else if(i===9){tc.innerHTML=`<div class="section-head"><h2>Visitas técnicas</h2><button class="btn-primary" onclick="openVisitaForm(null,'${id}')">+ Agregar visita</button></div>${renderVisitasTable(visitas)}`;}
+  /* ═══ FASE 2 · pestaña Cambios del proyecto ═══ */
+  else if(i===10){renderCambiosTab(window._projDetail?.cambios||[],id,p);}
 }
 
 function renderProjGeneral(p){
@@ -1195,16 +1213,15 @@ async function exportFichaPDF(proyId){
   const tbl=tables[p.naturaleza];
   const{data:ficha}=tbl?await sb.from(tbl).select('*').eq('proyecto_id',proyId).single():{data:null};
   const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
-  const sysName=app.config.system_name||'PMO SGP';
-  doc.setFillColor(127,119,221);doc.rect(0,0,210,20,'F');
-  doc.setTextColor(255);doc.setFontSize(14);doc.text(sysName,15,13);
-  doc.setFontSize(9);doc.text('FICHA TÉCNICA',195,13,{align:'right'});
+  /* FASE 2 · helpers de branding */
+  addPdfHeader(doc,'FICHA TÉCNICA');
+  addPdfWatermark(doc,true);
   doc.setTextColor(30);
-  doc.setFontSize(16);doc.setFont(undefined,'bold');doc.text((p.nombre||'').substring(0,60),15,32);
+  doc.setFontSize(16);doc.setFont(undefined,'bold');doc.text((p.nombre||'').substring(0,60),15,34);
   doc.setFont(undefined,'normal');doc.setFontSize(10);doc.setTextColor(100);
-  doc.text(`${p.codigo||''} | ${p.naturaleza||''} | ${p.estado_general||''}`,15,39);
-  doc.line(15,43,195,43);
-  let y=50;
+  doc.text(`${p.codigo||''} | ${p.naturaleza||''} | ${p.estado_general||''}`,15,41);
+  doc.line(15,45,195,45);
+  let y=52;
   const addSec=(t)=>{if(y>260){doc.addPage();y=20;}doc.setFontSize(11);doc.setFont(undefined,'bold');doc.setTextColor(127,119,221);doc.text(t,15,y);y+=6;doc.setFont(undefined,'normal');doc.setTextColor(60);};
   const addRow=(l,val)=>{if(!val&&val!==0)return;if(y>270){doc.addPage();y=20;}doc.setFontSize(9);doc.setTextColor(120);doc.text(l+':',15,y);doc.setTextColor(40);doc.text(String(val).substring(0,80),70,y);y+=5;};
   addSec('Información General');
@@ -1215,8 +1232,9 @@ async function exportFichaPDF(proyId){
   addRow('% Avance proyecto',(p.pct_avance_proyecto||0)+'%');addRow('% Obra',(p.pct_ejecucion_obra||0)+'%');
   y+=4;
   if(ficha){addSec('Datos Técnicos');Object.entries(ficha).forEach(([k,v2])=>{if(['id','proyecto_id','created_at','updated_at'].includes(k))return;if(v2!==null&&v2!=='')addRow(k.replace(/_/g,' '),v2);});}
-  if(p.descripcion){addSec('Descripción');const lines=doc.splitTextToSize(p.descripcion,175);doc.setFontSize(9);doc.setTextColor(60);lines.forEach(l=>{if(y>270){doc.addPage();y=20;}doc.text(l,15,y);y+=5;});}
-  doc.setFontSize(8);doc.setTextColor(150);doc.text(`Generado: ${new Date().toLocaleString('es-HN')} | ${sysName}`,15,287);
+  if(p.descripcion){addSec('Descripción');const lines=doc.splitTextToSize(p.descripcion,175);doc.setFontSize(9);doc.setTextColor(60);lines.forEach(l=>{if(y>270){doc.addPage();addPdfWatermark(doc,false);y=20;}doc.text(l,15,y);y+=5;});}
+  /* FASE 2 · footer unificado */
+  addPdfFooter(doc);
   doc.save(`ficha_tecnica_${(p.codigo||p.id||'').replace(/[^a-z0-9]/gi,'_')}.pdf`);
 }
 
@@ -1639,6 +1657,35 @@ async function renderConfiguracion(){
         </div>
         <div style="margin-top:1rem"><button class="btn-primary" onclick="saveConfig()">Guardar configuración del sistema</button></div>
       </div>
+      <!-- ═══ FASE 2 · Personalización de reportes PDF ═══ -->
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title">📄 Personalización de reportes PDF</div>
+        <div class="form-grid">
+          <div class="field"><label>Título institucional</label><input type="text" id="pdf-cfg-title" value="${esc(c.pdf_institutional_title||'PMO — Sistema de Gestión de Proyectos')}"></div>
+          <div class="field"><label>Subtítulo institucional</label><input type="text" id="pdf-cfg-subtitle" value="${esc(c.pdf_institutional_subtitle||'UTCD — ENEE')}"></div>
+          <div class="field"><label>Color secundario <span id="pdf-color2-prev" style="display:inline-block;width:24px;height:24px;border-radius:4px;background:${c.pdf_secondary_color||'#534AB7'};vertical-align:middle;margin-left:6px;border:0.5px solid var(--border)"></span></label><input type="color" id="pdf-cfg-color2" value="${c.pdf_secondary_color||'#534AB7'}" oninput="document.getElementById('pdf-color2-prev').style.background=this.value"></div>
+          <div class="field"><label>URL de marca de agua</label><input type="url" id="pdf-cfg-wm-url" value="${esc(c.pdf_watermark_url||'')}" placeholder="https://... (opcional)"></div>
+          <div class="field"><label>Opacidad marca de agua (0–1)</label><input type="number" id="pdf-cfg-wm-op" min="0" max="1" step="0.01" value="${esc(c.pdf_watermark_opacity||'0.08')}"></div>
+          <div class="field"><label>Posición marca de agua</label><select id="pdf-cfg-wm-pos"><option value="centro"${c.pdf_watermark_position==='centro'?' selected':''}>Centro (solo primera)</option><option value="portada"${c.pdf_watermark_position==='portada'?' selected':''}>Portada</option><option value="todas"${(c.pdf_watermark_position||'todas')==='todas'?' selected':''}>Todas las páginas</option></select></div>
+          <div class="field"><label>Texto de pie de página</label><input type="text" id="pdf-cfg-footer" value="${esc(c.pdf_footer_text||'Documento confidencial — Uso interno')}"></div>
+          <div class="field">
+            <label>Mostrar en el PDF</label>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:7px 0">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer"><input type="checkbox" id="pdf-cfg-show-date" ${(c.pdf_show_date==='1'||c.pdf_show_date===undefined)?'checked':''}> Fecha de generación</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer"><input type="checkbox" id="pdf-cfg-show-user" ${(c.pdf_show_user==='1'||c.pdf_show_user===undefined)?'checked':''}> Usuario generador</label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer"><input type="checkbox" id="pdf-cfg-show-footer" ${(c.pdf_show_footer==='1'||c.pdf_show_footer===undefined)?'checked':''}> Pie de página</label>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-primary" onclick="savePdfConfig()">Guardar personalización PDF</button>
+          <button class="btn-ghost" onclick="openReportFieldsModal('reporte_proyecto')">🧾 Campos del reporte de proyecto</button>
+          <button class="btn-ghost" onclick="openReportFieldsModal('reporte_dashboard')">📊 Campos del dashboard</button>
+          <button class="btn-ghost" onclick="openReportFieldsModal('reporte_actualizaciones')">📝 Campos actualizaciones</button>
+          <button class="btn-ghost" onclick="openReportFieldsModal('reporte_subestacion')">⚡ Campos subestación</button>
+        </div>
+      </div>
+      <!-- ═══ FIN FASE 2 · Personalización de reportes PDF ═══ -->
       <div class="card" style="grid-column:1/-1">
         <div class="card-title">📋 Listas desplegables</div>
         <div class="filter-bar" style="margin-bottom:1rem">
@@ -1706,6 +1753,458 @@ async function doDelete(tabla,id){
   if(app.view==='proyecto_detalle'&&tabla==='proyectos')nav('proyectos');
   else render();
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════  FASE 2 — REPORTES PDF + GESTIÓN DE CAMBIOS  ═════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ───────── 1. Helpers de reportes PDF (branding, header, footer, watermark) ─────────
+
+/** Parsea un hex '#RRGGBB' a [r,g,b] numérico 0–255. */
+function hexToRgb(hex){
+  if(!hex||typeof hex!=='string')return[127,119,221];
+  const h=hex.replace('#','');
+  if(h.length!==6)return[127,119,221];
+  return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+
+/** Devuelve config PDF completa derivada de app.config con defaults seguros. */
+function getReportConfig(){
+  const c=app.config||{};
+  return{
+    sysName:      c.system_name||'PMO SGP',
+    sysSub:       c.system_sub||'UTCD — ENEE',
+    title:        c.pdf_institutional_title||c.pdf_title||'PMO — Sistema de Gestión de Proyectos',
+    subtitle:     c.pdf_institutional_subtitle||'UTCD — ENEE',
+    primary:      c.primary_color||'#7F77DD',
+    secondary:    c.pdf_secondary_color||'#534AB7',
+    logoUrl:      c.logo_url||'',
+    watermarkUrl: c.pdf_watermark_url||'',
+    watermarkOp:  parseFloat(c.pdf_watermark_opacity)||0.08,
+    watermarkPos: c.pdf_watermark_position||'todas',
+    showDate:     c.pdf_show_date!=='0',
+    showUser:     c.pdf_show_user!=='0',
+    showFooter:   c.pdf_show_footer!=='0',
+    footerText:   c.pdf_footer_text||'Documento confidencial — Uso interno'
+  };
+}
+
+/** Aplica color primario al fillColor actual del doc. */
+function applyPdfBranding(doc){
+  const cfg=getReportConfig();
+  const[r,g,b]=hexToRgb(cfg.primary);
+  doc.setFillColor(r,g,b);
+}
+
+/** Header estándar: barra primaria 20mm + sysName izquierda + título derecha. */
+function addPdfHeader(doc,sectionTitle=''){
+  const cfg=getReportConfig();
+  const[r,g,b]=hexToRgb(cfg.primary);
+  const pageW=doc.internal.pageSize.getWidth();
+  doc.setFillColor(r,g,b);doc.rect(0,0,pageW,20,'F');
+  doc.setTextColor(255);doc.setFontSize(13);doc.setFont(undefined,'bold');
+  doc.text(cfg.sysName,15,12);
+  doc.setFont(undefined,'normal');doc.setFontSize(9);
+  doc.text(cfg.subtitle||cfg.sysSub,15,17);
+  if(sectionTitle){doc.setFontSize(10);doc.setFont(undefined,'bold');doc.text(sectionTitle,pageW-15,13,{align:'right'});doc.setFont(undefined,'normal');}
+  doc.setTextColor(30);
+}
+
+/** Footer estándar: línea + info generada + pie de página + paginación. */
+function addPdfFooter(doc){
+  const cfg=getReportConfig();
+  const pageW=doc.internal.pageSize.getWidth();
+  const pageH=doc.internal.pageSize.getHeight();
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setDrawColor(200);doc.setLineWidth(0.2);
+    doc.line(15,pageH-14,pageW-15,pageH-14);
+    doc.setFontSize(8);doc.setTextColor(140);
+    const parts=[];
+    if(cfg.showDate)parts.push('Generado: '+new Date().toLocaleString('es-HN'));
+    if(cfg.showUser)parts.push('Por: '+(app.profile?.full_name||app.user?.email||'—'));
+    parts.push(cfg.sysName);
+    doc.text(parts.join(' · '),15,pageH-8);
+    if(cfg.showFooter&&cfg.footerText){doc.text(cfg.footerText,pageW/2,pageH-3,{align:'center'});}
+    doc.setFontSize(8);doc.text(`Pág. ${i} / ${pageCount}`,pageW-15,pageH-8,{align:'right'});
+  }
+  doc.setTextColor(30);
+}
+
+/** Watermark opcional. Solo se dibuja si hay URL configurada y la página actual lo permite.
+ *  Se debe llamar después de addPage y antes de dibujar contenido nuevo.
+ *  isFirstPage: true en la primera página; false en páginas subsiguientes. */
+function addPdfWatermark(doc,isFirstPage=false){
+  const cfg=getReportConfig();
+  if(!cfg.watermarkUrl)return;
+  const pos=cfg.watermarkPos;
+  // Si es 'portada' solo la primera, si es 'centro' solo la primera, 'todas' siempre.
+  if((pos==='portada'||pos==='centro')&&!isFirstPage)return;
+  try{
+    const pageW=doc.internal.pageSize.getWidth();
+    const pageH=doc.internal.pageSize.getHeight();
+    const wmW=110;const wmH=110;
+    const x=(pageW-wmW)/2;const y=(pageH-wmH)/2;
+    // setGState: opacity en jsPDF 2.x
+    if(doc.GState){
+      const gs=new doc.GState({opacity:cfg.watermarkOp});
+      doc.setGState(gs);
+      doc.addImage(cfg.watermarkUrl,'PNG',x,y,wmW,wmH,'','FAST');
+      const gs2=new doc.GState({opacity:1});doc.setGState(gs2);
+    }else{
+      doc.addImage(cfg.watermarkUrl,'PNG',x,y,wmW,wmH,'','FAST');
+    }
+  }catch(e){/* URL inválida o CORS — se ignora silenciosamente */}
+}
+
+/** Dado report_type y field_key, devuelve true si está habilitado.
+ *  Si no existe configuración, devuelve true por defecto (no bloquea). */
+function shouldPrintField(reportType,fieldKey){
+  const map=app.reportFields&&app.reportFields[reportType];
+  if(!map)return true;
+  const entry=map[fieldKey];
+  return entry===undefined?true:!!entry;
+}
+
+/** Devuelve un objeto {field_key: enabled} para un reportType dado. */
+function getEnabledReportFields(reportType){
+  const map=app.reportFields&&app.reportFields[reportType];
+  return map||{};
+}
+
+/** Carga toda la config de report_field_config en app.reportFields. */
+async function loadReportFields(){
+  const{data}=await sb.from('report_field_config').select('*');
+  app.reportFields={};
+  (data||[]).forEach(r=>{
+    if(!app.reportFields[r.report_type])app.reportFields[r.report_type]={};
+    app.reportFields[r.report_type][r.field_key]=r.enabled;
+  });
+}
+
+// ───────── 2. Guardar branding PDF desde Configuración ─────────
+
+async function savePdfConfig(){
+  if(!isCoord())return toast('Solo el coordinador puede guardar.',true);
+  const updates=[
+    {clave:'pdf_institutional_title',    valor:v('pdf-cfg-title')},
+    {clave:'pdf_institutional_subtitle', valor:v('pdf-cfg-subtitle')},
+    {clave:'pdf_secondary_color',        valor:document.getElementById('pdf-cfg-color2').value},
+    {clave:'pdf_watermark_url',          valor:v('pdf-cfg-wm-url')},
+    {clave:'pdf_watermark_opacity',      valor:v('pdf-cfg-wm-op')||'0.08'},
+    {clave:'pdf_watermark_position',     valor:v('pdf-cfg-wm-pos')},
+    {clave:'pdf_footer_text',            valor:v('pdf-cfg-footer')},
+    {clave:'pdf_show_date',              valor:document.getElementById('pdf-cfg-show-date').checked?'1':'0'},
+    {clave:'pdf_show_user',              valor:document.getElementById('pdf-cfg-show-user').checked?'1':'0'},
+    {clave:'pdf_show_footer',            valor:document.getElementById('pdf-cfg-show-footer').checked?'1':'0'}
+  ];
+  for(const u of updates){
+    const{error}=await sb.from('config_sistema').upsert(u,{onConflict:'clave'});
+    if(error)return toast('Error: '+error.message,true);
+  }
+  toast('Personalización PDF guardada.');await loadConfig();
+}
+
+// ───────── 3. Modal de configuración de campos por tipo de reporte ─────────
+
+async function openReportFieldsModal(reportType){
+  if(!isCoord())return toast('Solo el coordinador puede configurar reportes.',true);
+  const{data}=await sb.from('report_field_config').select('*').eq('report_type',reportType).order('orden');
+  const items=data||[];
+  const titles={reporte_proyecto:'Campos del reporte de proyecto',reporte_dashboard:'Campos del dashboard',reporte_actualizaciones:'Campos de actualizaciones',reporte_subestacion:'Campos del reporte de subestación'};
+  document.getElementById('modal-report-fields-body').innerHTML=`
+    <h2>🧾 ${titles[reportType]||reportType}</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:1rem">Selecciona qué campos se incluirán al generar este tipo de reporte PDF.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;max-height:60vh;overflow-y:auto;padding:4px">
+      ${items.map(it=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:0.5px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px"><input type="checkbox" data-field-id="${it.id}" ${it.enabled?'checked':''}><span>${esc(it.field_label)}</span></label>`).join('')}
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="toggleAllReportFields(true)">✓ Marcar todos</button>
+      <button class="btn-ghost" onclick="toggleAllReportFields(false)">✗ Desmarcar todos</button>
+      <button class="btn-ghost" onclick="closeM('modal-report-fields')">Cancelar</button>
+      <button class="btn-primary" onclick="saveReportFields('${reportType}')">Guardar</button>
+    </div>`;
+  openM('modal-report-fields');
+}
+
+function toggleAllReportFields(val){
+  document.querySelectorAll('#modal-report-fields-body input[type=checkbox]').forEach(cb=>{cb.checked=val;});
+}
+
+async function saveReportFields(reportType){
+  const rows=[];
+  document.querySelectorAll('#modal-report-fields-body input[type=checkbox]').forEach(cb=>{
+    rows.push({id:cb.dataset.fieldId,enabled:cb.checked});
+  });
+  for(const r of rows){
+    const{error}=await sb.from('report_field_config').update({enabled:r.enabled,updated_at:new Date().toISOString()}).eq('id',r.id);
+    if(error)return toast('Error: '+error.message,true);
+  }
+  closeM('modal-report-fields');toast('Campos guardados.');await loadReportFields();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 2 · GESTIÓN DE CAMBIOS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Colores por estado (usa mismas paletas que badges del sistema)
+const CAMBIO_BADGE={
+  'Solicitado':'identificado',
+  'En análisis':'enseguimiento',
+  'Aprobado':'aprobado',
+  'Rechazado':'rechazado',
+  'Implementado':'activo',
+  'Cerrado':'cerrado'
+};
+const PRIORIDAD_BADGE={
+  'Baja':'activo','Media':'proceso','Alta':'pendiente','Crítica':'rechazado'
+};
+
+// ───────── Vista principal: módulo Cambios (sidebar) ─────────
+
+async function renderCambios(){
+  const[{data:cambios},{data:projs}]=await Promise.all([
+    sb.from('cambios_proyecto').select('*,proyectos(id,nombre,codigo,pm_id)').order('fecha_solicitud',{ascending:false}),
+    sb.from('proyectos').select('id,nombre,codigo').order('nombre')
+  ]);
+  window._cambiosData=cambios||[];window._cambiosProjs=projs||[];
+  document.getElementById('topbar-actions').innerHTML=`<button class="btn-primary" onclick="openCambioForm()">+ Nueva solicitud</button>`;
+
+  const estados=['Solicitado','En análisis','Aprobado','Rechazado','Implementado','Cerrado'];
+  const tipos=app.lists['tipo_cambio']||[];
+  const prioridades=app.lists['prioridad_cambio']||[];
+
+  document.getElementById('main-content').innerHTML=`
+    <div class="filter-bar">
+      <input type="text" id="cf-search" placeholder="🔍 Buscar..." oninput="filterCambios()" style="flex:1;min-width:160px">
+      <select id="cf-proy" onchange="filterCambios()"><option value="">Todos los proyectos</option>${(projs||[]).map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('')}</select>
+      <select id="cf-estado" onchange="filterCambios()"><option value="">Todos estados</option>${estados.map(e=>`<option>${e}</option>`).join('')}</select>
+      <select id="cf-tipo" onchange="filterCambios()"><option value="">Todos tipos</option>${tipos.map(t=>`<option>${t}</option>`).join('')}</select>
+      <select id="cf-prioridad" onchange="filterCambios()"><option value="">Todas prioridades</option>${prioridades.map(p=>`<option>${p}</option>`).join('')}</select>
+      <input type="date" id="cf-desde" onchange="filterCambios()" title="Desde">
+      <input type="date" id="cf-hasta" onchange="filterCambios()" title="Hasta">
+    </div>
+    <div id="cambios-body"></div>`;
+  renderCambiosBody(cambios||[]);
+}
+
+function filterCambios(){
+  const s=(v('cf-search')||'').toLowerCase();
+  const pid=v('cf-proy'),est=v('cf-estado'),tipo=v('cf-tipo'),pri=v('cf-prioridad');
+  const d1=v('cf-desde'),d2=v('cf-hasta');
+  const arr=(window._cambiosData||[]).filter(c=>
+    (!s||(c.titulo||'').toLowerCase().includes(s)||(c.numero_solicitud||'').toLowerCase().includes(s)||(c.descripcion||'').toLowerCase().includes(s))&&
+    (!pid||c.proyecto_id===pid)&&
+    (!est||c.estado===est)&&
+    (!tipo||c.tipo_cambio===tipo)&&
+    (!pri||c.prioridad===pri)&&
+    (!d1||(c.fecha_solicitud&&c.fecha_solicitud>=d1))&&
+    (!d2||(c.fecha_solicitud&&c.fecha_solicitud<=d2))
+  );
+  renderCambiosBody(arr);
+}
+
+function renderCambiosBody(cambios){
+  const estados=['Solicitado','En análisis','Aprobado','Rechazado','Implementado','Cerrado'];
+  const counts={};estados.forEach(e=>counts[e]=0);
+  cambios.forEach(c=>{if(counts[c.estado]!==undefined)counts[c.estado]++;});
+  const totalCosto=cambios.reduce((s,c)=>s+(Number(c.impacto_costo)||0),0);
+  const totalDias=cambios.reduce((s,c)=>s+(Number(c.dias_impacto)||0),0);
+
+  const resumen=`
+    <div class="metric-grid" style="grid-template-columns:repeat(6,minmax(0,1fr))">
+      ${estados.map(e=>`<div class="metric-card"><div class="lbl">${e}</div><div class="val" style="font-size:22px">${counts[e]||0}</div></div>`).join('')}
+    </div>
+    <div class="metric-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+      <div class="metric-card"><div class="lbl">Total solicitudes</div><div class="val">${cambios.length}</div></div>
+      <div class="metric-card"><div class="lbl">Impacto total costo</div><div class="val" style="font-size:22px">$${fmtNum(totalCosto)}</div></div>
+      <div class="metric-card"><div class="lbl">Impacto total días</div><div class="val" style="font-size:22px">${totalDias}</div></div>
+    </div>`;
+
+  const tabla=cambios.length?`<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Fecha</th><th>Proyecto</th><th style="min-width:220px">Título</th><th>Tipo</th><th>Estado</th><th>Prioridad</th><th>Impacto $</th><th>Días</th><th></th></tr></thead>
+    <tbody>${cambios.map(c=>{
+      const proj=c.proyectos||{};
+      const canEditThis=canEdit({pm_id:proj.pm_id});
+      return`<tr>
+        <td style="font-size:11px;color:var(--muted)">${esc(c.numero_solicitud||'—')}</td>
+        <td style="font-size:12px">${fmtDate(c.fecha_solicitud)}</td>
+        <td style="font-size:12px"><a class="link-btn" style="text-decoration:none" onclick="nav('proyecto_detalle',{projectId:'${proj.id}'})">${esc(proj.nombre||'—')}</a></td>
+        <td><strong style="font-size:13px">${esc(c.titulo||'')}</strong>${c.solicitante?`<div style="font-size:11px;color:var(--muted)">👤 ${esc(c.solicitante)}</div>`:''}</td>
+        <td style="font-size:12px">${esc(c.tipo_cambio||'—')}</td>
+        <td><span class="badge ${CAMBIO_BADGE[c.estado]||'pendiente'}">${esc(c.estado||'—')}</span></td>
+        <td><span class="badge ${PRIORIDAD_BADGE[c.prioridad]||'activo'}">${esc(c.prioridad||'—')}</span></td>
+        <td style="text-align:right;font-size:12px">${c.impacto_costo?'$'+fmtNum(c.impacto_costo):'—'}</td>
+        <td style="text-align:center;font-size:12px">${c.dias_impacto||'—'}</td>
+        <td class="action-row">
+          ${canEditThis?`<button class="icon-btn" onclick="openCambioForm('${c.id}')" title="Editar">✏️</button>`:`<button class="icon-btn" onclick="openCambioForm('${c.id}',null,true)" title="Ver">👁</button>`}
+          ${c.link_documento?`<a class="icon-btn" href="${esc(c.link_documento)}" target="_blank" title="Documento">📎</a>`:''}
+          ${isCoord()?`<button class="icon-btn del" onclick="confirmDelete('cambios_proyecto','${c.id}')" title="Eliminar">🗑</button>`:''}
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`:`<div class="empty">Sin solicitudes de cambio que coincidan con los filtros.</div>`;
+
+  document.getElementById('cambios-body').innerHTML=resumen+tabla;
+}
+
+// ───────── Pestaña dentro del detalle de proyecto ─────────
+
+function renderCambiosTab(cambios,proyId,p){
+  const tc=document.getElementById('proj-tab-content');
+  const estados=['Solicitado','En análisis','Aprobado','Rechazado','Implementado','Cerrado'];
+  const counts={};estados.forEach(e=>counts[e]=0);
+  cambios.forEach(c=>{if(counts[c.estado]!==undefined)counts[c.estado]++;});
+  const totalCosto=cambios.reduce((s,c)=>s+(Number(c.impacto_costo)||0),0);
+  const totalDias=cambios.reduce((s,c)=>s+(Number(c.dias_impacto)||0),0);
+
+  tc.innerHTML=`
+    <div class="section-head">
+      <h2>Gestión de cambios del proyecto</h2>
+      ${canEdit(p)?`<button class="btn-primary" onclick="openCambioForm(null,'${proyId}')">+ Nueva solicitud</button>`:''}
+    </div>
+    <div class="metric-grid" style="grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:1rem">
+      ${estados.map(e=>`<div class="metric-card"><div class="lbl">${e}</div><div class="val" style="font-size:22px">${counts[e]||0}</div></div>`).join('')}
+    </div>
+    <div class="metric-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1rem">
+      <div class="metric-card"><div class="lbl">Impacto total costo</div><div class="val" style="font-size:22px;color:${totalCosto>0?'var(--rd)':'var(--text)'}">$${fmtNum(totalCosto)}</div><div class="sub">suma de solicitudes</div></div>
+      <div class="metric-card"><div class="lbl">Impacto total días</div><div class="val" style="font-size:22px;color:${totalDias>0?'var(--ad)':'var(--text)'}">${totalDias}</div><div class="sub">suma de solicitudes</div></div>
+    </div>
+    ${cambios.length?`<div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>Fecha</th><th>Título</th><th>Tipo</th><th>Estado</th><th>Prioridad</th><th>Impacto $</th><th>Días</th><th></th></tr></thead>
+      <tbody>${cambios.map(c=>`<tr>
+        <td style="font-size:11px;color:var(--muted)">${esc(c.numero_solicitud||'—')}</td>
+        <td style="font-size:12px">${fmtDate(c.fecha_solicitud)}</td>
+        <td><strong style="font-size:13px">${esc(c.titulo||'')}</strong>${c.descripcion?`<div style="font-size:11px;color:var(--muted);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.descripcion)}</div>`:''}</td>
+        <td style="font-size:12px">${esc(c.tipo_cambio||'—')}</td>
+        <td><span class="badge ${CAMBIO_BADGE[c.estado]||'pendiente'}">${esc(c.estado||'—')}</span></td>
+        <td><span class="badge ${PRIORIDAD_BADGE[c.prioridad]||'activo'}">${esc(c.prioridad||'—')}</span></td>
+        <td style="text-align:right;font-size:12px">${c.impacto_costo?'$'+fmtNum(c.impacto_costo):'—'}</td>
+        <td style="text-align:center;font-size:12px">${c.dias_impacto||'—'}</td>
+        <td class="action-row">
+          ${canEdit(p)?`<button class="icon-btn" onclick="openCambioForm('${c.id}','${proyId}')">✏️</button>`:`<button class="icon-btn" onclick="openCambioForm('${c.id}','${proyId}',true)">👁</button>`}
+          ${c.link_documento?`<a class="icon-btn" href="${esc(c.link_documento)}" target="_blank">📎</a>`:''}
+          ${isCoord()?`<button class="icon-btn del" onclick="confirmDelete('cambios_proyecto','${c.id}')">🗑</button>`:''}
+        </td>
+      </tr>`).join('')}</tbody></table></div>`:`<div class="empty">Este proyecto no tiene solicitudes de cambio registradas.</div>`}`;
+}
+
+// ───────── Formulario crear/editar cambio ─────────
+
+async function openCambioForm(id=null,proyId=null,readOnly=false){
+  let c={};
+  if(id){const{data}=await sb.from('cambios_proyecto').select('*').eq('id',id).single();c=data||{};proyId=c.proyecto_id;}
+  const{data:projs}=await sb.from('proyectos').select('id,nombre,codigo').order('nombre');
+  const proyectos=projs||[];
+
+  // Autogenerar número si es nuevo
+  let nextNum=c.numero_solicitud||'';
+  if(!id){
+    const{data:prev}=await sb.from('cambios_proyecto').select('numero_solicitud').order('created_at',{ascending:false}).limit(50);
+    const nums=(prev||[]).map(x=>parseInt((x.numero_solicitud||'').replace(/\D/g,''))).filter(n=>!isNaN(n));
+    const next=(nums.length?Math.max(...nums):0)+1;
+    nextNum='SC-'+String(next).padStart(3,'0');
+  }
+
+  const selEstado=(val)=>{const opts=(app.lists['estado_cambio']||['Solicitado','En análisis','Aprobado','Rechazado','Implementado','Cerrado']).map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`).join('');return`<select id="cmf-estado"${readOnly?' disabled':''}>${opts}</select>`;};
+  const selPrioridad=(val)=>{const opts=(app.lists['prioridad_cambio']||['Baja','Media','Alta','Crítica']).map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`).join('');return`<select id="cmf-prioridad"${readOnly?' disabled':''}>${opts}</select>`;};
+  const selTipo=(val)=>{const opts=(app.lists['tipo_cambio']||['Alcance','Costo','Plazo','Calidad','Técnico','Contractual','Permisos','Seguridad','Ambiental','Otro']).map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`).join('');return`<select id="cmf-tipo"${readOnly?' disabled':''}><option value="">— Seleccionar —</option>${opts}</select>`;};
+  const selProy=(val)=>`<select id="cmf-proy"${readOnly||id?' disabled':''}><option value="">— Seleccionar —</option>${proyectos.map(p=>`<option value="${p.id}"${p.id===val?' selected':''}>${esc((p.codigo?p.codigo+' · ':'')+p.nombre)}</option>`).join('')}</select>`;
+  const ro=readOnly?' readonly':'';
+
+  document.getElementById('modal-cambio-body').innerHTML=`
+    <h2>${readOnly?'👁 Ver solicitud':id?'✏️ Editar solicitud':'➕ Nueva solicitud de cambio'}</h2>
+    <div class="form-grid">
+      <div class="field"><label>N° solicitud</label><input type="text" id="cmf-num" value="${esc(c.numero_solicitud||nextNum)}"${ro}></div>
+      <div class="field"><label>Fecha solicitud</label><input type="date" id="cmf-fsol" value="${c.fecha_solicitud||new Date().toISOString().slice(0,10)}"${ro}></div>
+      <div class="field"><label>Proyecto *</label>${selProy(proyId||c.proyecto_id||'')}</div>
+      <div class="field"><label>Solicitante</label><input type="text" id="cmf-solic" value="${esc(c.solicitante||'')}"${ro}></div>
+      <div class="field"><label>Tipo de cambio</label>${selTipo(c.tipo_cambio||'')}</div>
+      <div class="field"><label>Prioridad</label>${selPrioridad(c.prioridad||'Media')}</div>
+      <div class="field full"><label>Título *</label><input type="text" id="cmf-titulo" value="${esc(c.titulo||'')}"${ro} placeholder="Resumen breve del cambio"></div>
+      <div class="field full"><label>Descripción</label><textarea id="cmf-desc"${ro}>${esc(c.descripcion||'')}</textarea></div>
+      <div class="field full"><label>Justificación</label><textarea id="cmf-just"${ro}>${esc(c.justificacion||'')}</textarea></div>
+
+      <div class="field full"><label style="color:var(--pd);font-weight:600">Análisis de impactos</label></div>
+      <div class="field"><label>Impacto costo (USD)</label><input type="number" id="cmf-imp-costo" value="${c.impacto_costo||0}" step="0.01"${ro}></div>
+      <div class="field"><label>Impacto días</label><input type="number" id="cmf-imp-dias" value="${c.dias_impacto||0}"${ro}></div>
+      <div class="field full"><label>Impacto en alcance</label><textarea id="cmf-imp-alc" rows="2"${ro}>${esc(c.impacto_alcance||'')}</textarea></div>
+      <div class="field full"><label>Impacto en cronograma</label><textarea id="cmf-imp-cron" rows="2"${ro}>${esc(c.impacto_cronograma||'')}</textarea></div>
+      <div class="field full"><label>Impacto en calidad</label><textarea id="cmf-imp-cal" rows="2"${ro}>${esc(c.impacto_calidad||'')}</textarea></div>
+      <div class="field full"><label>Impacto en riesgos</label><textarea id="cmf-imp-riesgos" rows="2"${ro}>${esc(c.impacto_riesgos||'')}</textarea></div>
+
+      <div class="field full"><label style="color:var(--pd);font-weight:600">Flujo de aprobación</label></div>
+      <div class="field"><label>Estado</label>${selEstado(c.estado||'Solicitado')}</div>
+      <div class="field"><label>Responsable del análisis</label><input type="text" id="cmf-resp" value="${esc(c.responsable_analisis||'')}"${ro}></div>
+      <div class="field"><label>Aprobador</label><input type="text" id="cmf-aprob" value="${esc(c.aprobador||'')}"${ro}></div>
+      <div class="field"><label>Decisión</label><input type="text" id="cmf-decision" value="${esc(c.decision||'')}"${ro} placeholder="Aprobado / Rechazado / ..."></div>
+      <div class="field"><label>Fecha aprobación</label><input type="date" id="cmf-faprob" value="${c.fecha_aprobacion||''}"${ro}></div>
+      <div class="field"><label>Fecha implementación</label><input type="date" id="cmf-fimpl" value="${c.fecha_implementacion||''}"${ro}></div>
+      <div class="field"><label>Link documento</label><input type="url" id="cmf-doc" value="${esc(c.link_documento||'')}"${ro} placeholder="https://..."></div>
+      <div class="field"><label>Link soporte</label><input type="url" id="cmf-sop" value="${esc(c.link_soporte||'')}"${ro} placeholder="https://..."></div>
+      <div class="field full"><label>Observaciones</label><textarea id="cmf-obs"${ro}>${esc(c.observaciones||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-cambio')">${readOnly?'Cerrar':'Cancelar'}</button>
+      ${readOnly?'':`<button class="btn-primary" onclick="saveCambio('${id||''}')">💾 Guardar solicitud</button>`}
+    </div>`;
+  openM('modal-cambio');
+}
+
+async function saveCambio(id){
+  const proyId=v('cmf-proy');
+  const titulo=v('cmf-titulo');
+  if(!proyId)return toast('Selecciona un proyecto.',true);
+  if(!titulo)return toast('El título es obligatorio.',true);
+  const payload={
+    proyecto_id: proyId,
+    numero_solicitud: v('cmf-num')||null,
+    fecha_solicitud: v('cmf-fsol')||null,
+    solicitante: v('cmf-solic')||null,
+    tipo_cambio: v('cmf-tipo')||null,
+    titulo: titulo,
+    descripcion: v('cmf-desc')||null,
+    justificacion: v('cmf-just')||null,
+    impacto_alcance: v('cmf-imp-alc')||null,
+    impacto_cronograma: v('cmf-imp-cron')||null,
+    impacto_costo: numv('cmf-imp-costo')||0,
+    impacto_calidad: v('cmf-imp-cal')||null,
+    impacto_riesgos: v('cmf-imp-riesgos')||null,
+    dias_impacto: parseInt(v('cmf-imp-dias'))||0,
+    estado: v('cmf-estado')||'Solicitado',
+    prioridad: v('cmf-prioridad')||'Media',
+    responsable_analisis: v('cmf-resp')||null,
+    aprobador: v('cmf-aprob')||null,
+    decision: v('cmf-decision')||null,
+    fecha_aprobacion: v('cmf-faprob')||null,
+    fecha_implementacion: v('cmf-fimpl')||null,
+    link_documento: v('cmf-doc')||null,
+    link_soporte: v('cmf-sop')||null,
+    observaciones: v('cmf-obs')||null,
+    usuario_id: app.user?.id||null,
+    updated_at: new Date().toISOString()
+  };
+  const{error}=id
+    ?await sb.from('cambios_proyecto').update(payload).eq('id',id)
+    :await sb.from('cambios_proyecto').insert(payload);
+  if(error)return toast('Error: '+error.message,true);
+  closeM('modal-cambio');toast(id?'Solicitud actualizada.':'Solicitud creada.');
+  // Si estamos en el detalle del proyecto, recargar; si no, recargar vista cambios
+  if(app.view==='proyecto_detalle')nav('proyecto_detalle',{projectId:app.projectId});
+  else render();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Carga inicial de report_field_config al arranque (se llama una sola vez)
+// ═══════════════════════════════════════════════════════════════════════════
+(async()=>{
+  try{await loadReportFields();}catch(e){console.warn('No se pudo cargar reportFields:',e);}
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════  FIN FASE 2  ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 
 // Mini map se renderiza desde renderProjGeneral vía initMiniMap()
 function initMiniMap(){

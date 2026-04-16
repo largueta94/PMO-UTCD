@@ -2219,8 +2219,8 @@ async function exportProyectoPDF(proyId){
       sb.from('visitas_tecnicas').select('*').eq('proyecto_id',proyId).order('fecha',{ascending:false}).limit(10),
       sb.from('cambios_proyecto').select('*').eq('proyecto_id',proyId).order('fecha_solicitud',{ascending:false}),
       sb.from('evm_linea_base').select('*').eq('proyecto_id',proyId).order('fecha',{ascending:false}).limit(1),
-      sb.from('edt_componentes').select('*').eq('proyecto_id',proyId).order('orden').catch(()=>({data:[]})),
-      sb.from('hitos_proyecto').select('*').eq('proyecto_id',proyId).order('fecha_planificada').catch(()=>({data:[]})),
+      sb.from('edt_componentes').select('*').eq('proyecto_id',proyId).order('orden'),
+      sb.from('hitos_proyecto').select('*').eq('proyecto_id',proyId).order('fecha_planificada'),
       sb.from('proyecto_adquisicion').select('adquisiciones(*)').eq('proyecto_id',proyId)
     ]);
 

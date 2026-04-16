@@ -662,6 +662,7 @@ async function renderProyectoDetalle(){
 
   document.getElementById('topbar-actions').innerHTML=`
     <button class="btn-ghost" onclick="nav('proyectos')">← Proyectos</button>
+    <button class="btn-ghost" onclick="exportProyectoPDF('${id}')" title="Exportar PDF del proyecto (respeta campos configurados)">⬇ PDF proyecto</button>
     ${canEdit(p)?`<button class="btn-primary" onclick="openProyectoForm('${id}')">✏️ Editar</button>`:''}`;
 
   const tabs=['General','Actualizaciones','Adquisiciones','EVM','Ficha Técnica','Riesgos','Interesados','Permisología','Fotografías','Visitas','Cambios'/* FASE 2 */];
@@ -2193,6 +2194,334 @@ async function saveCambio(id){
   // Si estamos en el detalle del proyecto, recargar; si no, recargar vista cambios
   if(app.view==='proyecto_detalle')nav('proyecto_detalle',{projectId:app.projectId});
   else render();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 1 · EXPORT PDF DE PROYECTO (respeta report_field_config)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function exportProyectoPDF(proyId){
+  toast('Generando PDF del proyecto...');
+  try{
+    // Siempre refrescar config de campos antes de generar (por si cambió)
+    await loadReportFields();
+
+    const{jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+
+    // Cargar todo en paralelo
+    const[{data:p},{data:updates},{data:riesgos},{data:permisos},{data:fotos},{data:visitas},{data:cambios},{data:evm},{data:edt},{data:hitos},{data:adqLinks}]=await Promise.all([
+      sb.from('proyectos').select('*,profiles!proyectos_pm_id_fkey(full_name),portafolios(nombre),programas(nombre),sponsor:personas!proyectos_sponsor_id_fkey(nombre),lider_persona:personas!proyectos_lider_persona_id_fkey(nombre)').eq('id',proyId).single(),
+      sb.from('actualizaciones').select('*,profiles(full_name)').eq('proyecto_id',proyId).order('fecha',{ascending:false}).limit(10),
+      sb.from('riesgos_proyecto').select('*').eq('proyecto_id',proyId).order('nivel',{ascending:false}),
+      sb.from('permisos_proyecto').select('*').eq('proyecto_id',proyId).order('fecha_vencimiento'),
+      sb.from('registro_fotografico').select('*').eq('proyecto_id',proyId).order('fecha',{ascending:false}).limit(4),
+      sb.from('visitas_tecnicas').select('*').eq('proyecto_id',proyId).order('fecha',{ascending:false}).limit(10),
+      sb.from('cambios_proyecto').select('*').eq('proyecto_id',proyId).order('fecha_solicitud',{ascending:false}),
+      sb.from('evm_linea_base').select('*').eq('proyecto_id',proyId).order('fecha',{ascending:false}).limit(1),
+      sb.from('edt_componentes').select('*').eq('proyecto_id',proyId).order('orden').catch(()=>({data:[]})),
+      sb.from('hitos_proyecto').select('*').eq('proyecto_id',proyId).order('fecha_planificada').catch(()=>({data:[]})),
+      sb.from('proyecto_adquisicion').select('adquisiciones(*)').eq('proyecto_id',proyId)
+    ]);
+
+    if(!p){toast('Proyecto no encontrado.',true);return;}
+
+    // Helper: ¿campo habilitado?
+    const show=(k)=>shouldPrintField('reporte_proyecto',k);
+
+    // Header y watermark primera página
+    addPdfHeader(doc,'REPORTE DE PROYECTO');
+    addPdfWatermark(doc,true);
+    doc.setTextColor(30);
+
+    // Título grande del proyecto (siempre, aunque codigo/nombre estén ocultos no tendría sentido)
+    doc.setFontSize(16);doc.setFont(undefined,'bold');
+    doc.text((p.nombre||'Sin nombre').substring(0,70),15,34);
+    doc.setFont(undefined,'normal');doc.setFontSize(10);doc.setTextColor(100);
+    const subl=[p.codigo||'',p.naturaleza||'',p.estado_general||''].filter(Boolean).join(' · ');
+    if(subl)doc.text(subl,15,41);
+    doc.line(15,45,195,45);
+    doc.setTextColor(30);
+
+    let y=52;
+    const cfg=getReportConfig();
+    const[pr,pg,pb]=hexToRgb(cfg.primary);
+
+    // Helpers locales
+    const addSec=(t)=>{
+      if(y>260){doc.addPage();addPdfWatermark(doc,false);y=20;}
+      y+=2;
+      doc.setFontSize(11);doc.setFont(undefined,'bold');doc.setTextColor(pr,pg,pb);
+      doc.text(t,15,y);y+=2;
+      doc.setDrawColor(pr,pg,pb);doc.setLineWidth(0.3);doc.line(15,y,195,y);y+=5;
+      doc.setFont(undefined,'normal');doc.setTextColor(60);
+    };
+    const addRow=(l,val)=>{
+      if(val===null||val===undefined||val==='')return;
+      if(y>272){doc.addPage();addPdfWatermark(doc,false);y=20;}
+      doc.setFontSize(9);doc.setTextColor(115);
+      doc.text(l+':',15,y);
+      doc.setTextColor(40);
+      const txt=String(val);
+      const wrapped=doc.splitTextToSize(txt,115);
+      doc.text(wrapped,70,y);
+      y+=5*Math.max(1,wrapped.length);
+    };
+    const addPara=(val,maxW=175)=>{
+      if(!val)return;
+      if(y>270){doc.addPage();addPdfWatermark(doc,false);y=20;}
+      doc.setFontSize(9);doc.setTextColor(60);
+      const lines=doc.splitTextToSize(String(val),maxW);
+      lines.forEach(l=>{if(y>272){doc.addPage();addPdfWatermark(doc,false);y=20;}doc.text(l,15,y);y+=4.5;});
+      y+=2;
+    };
+
+    // ──────────────── INFORMACIÓN GENERAL ────────────────
+    const sec1=[
+      ['codigo','Código',p.codigo],
+      ['nombre','Nombre',p.nombre],
+      ['tipo_proyecto','Tipo de proyecto',p.tipo_proyecto],
+      ['naturaleza','Naturaleza',p.naturaleza],
+      ['estado_general','Estado general',p.estado_general],
+      ['estado_proyecto','Etapa',p.estado_proyecto]
+    ].filter(([k])=>show(k));
+    if(sec1.length){
+      addSec('Información general');
+      sec1.forEach(([,l,v])=>addRow(l,v));
+      y+=2;
+    }
+
+    // ──────────────── ORGANIZACIÓN Y RESPONSABLES ────────────────
+    const sec2=[
+      ['pm','PM',p.profiles?.full_name],
+      ['lider','Líder',p.lider_persona?.nombre],
+      ['sponsor','Sponsor',p.sponsor?.nombre],
+      ['portafolio','Portafolio',p.portafolios?.nombre],
+      ['programa','Programa',p.programas?.nombre],
+      ['unidad_responsable','Unidad responsable',p.unidad_responsable||p.unidad_negocio]
+    ].filter(([k,,v])=>show(k)&&v);
+    if(sec2.length){
+      addSec('Organización y responsables');
+      sec2.forEach(([,l,v])=>addRow(l,v));
+      y+=2;
+    }
+
+    // ──────────────── DESCRIPCIÓN ────────────────
+    if(show('descripcion')&&p.descripcion){addSec('Descripción');addPara(p.descripcion);}
+    if(show('alcance')&&p.alcance){addSec('Alcance');addPara(p.alcance);}
+    if(show('objetivo')&&p.objetivo){addSec('Objetivo');addPara(p.objetivo);}
+    if(show('beneficios')&&p.beneficios){addSec('Beneficios');addPara(p.beneficios);}
+
+    // ──────────────── FECHAS ────────────────
+    const fPlan=show('fechas_plan')&&(p.fecha_inicio_planificada||p.fecha_fin_planificada);
+    const fReal=show('fechas_real')&&(p.fecha_inicio_real||p.fecha_fin_real||p.fecha_puesta_marcha);
+    if(fPlan||fReal){
+      addSec('Fechas clave');
+      if(fPlan){
+        addRow('Inicio planificado',fmtDate(p.fecha_inicio_planificada));
+        addRow('Fin planificado',fmtDate(p.fecha_fin_planificada));
+      }
+      if(fReal){
+        addRow('Inicio real',fmtDate(p.fecha_inicio_real));
+        addRow('Fin real',fmtDate(p.fecha_fin_real));
+        addRow('Puesta en marcha',fmtDate(p.fecha_puesta_marcha));
+      }
+      y+=2;
+    }
+
+    // ──────────────── FINANCIERO ────────────────
+    const sec4=[
+      ['inversion_usd','Inversión USD',p.inversion_usd?('$'+fmtNum(p.inversion_usd)):null],
+      ['inversion_hnl','Inversión HNL',p.inversion_hnl?('L'+fmtNum(p.inversion_hnl)):null],
+      ['ejecutado_hnl','Ejecutado HNL',p.ejecutado_hnl?('L'+fmtNum(p.ejecutado_hnl)):null]
+    ].filter(([k,,v])=>show(k)&&v);
+    if(sec4.length){
+      addSec('Información financiera');
+      sec4.forEach(([,l,v])=>addRow(l,v));
+      y+=2;
+    }
+
+    // ──────────────── AVANCES ────────────────
+    const avances=[
+      ['pct_avance_proyecto','% Avance proyecto',p.pct_avance_proyecto],
+      ['pct_ejecucion_obra','% Avance obra',p.pct_ejecucion_obra],
+      ['pct_avance_financiero','% Avance financiero',p.pct_avance_financiero]
+    ].filter(([k])=>show(k));
+    if(avances.length){
+      addSec('Avances');
+      avances.forEach(([,l,v])=>{
+        if(v===null||v===undefined)return;
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        doc.setFontSize(9);doc.setTextColor(115);doc.text(l+':',15,y);
+        doc.setTextColor(40);doc.text(String(v||0)+'%',70,y);
+        // Barra
+        const barX=95,barW=95,barH=3;
+        doc.setFillColor(230,230,230);doc.rect(barX,y-2.5,barW,barH,'F');
+        doc.setFillColor(pr,pg,pb);doc.rect(barX,y-2.5,barW*((v||0)/100),barH,'F');
+        y+=6;
+      });
+      y+=2;
+    }
+
+    // ──────────────── UBICACIÓN ────────────────
+    const sec5=[
+      ['departamento','Departamento',p.departamento],
+      ['municipio','Municipio',p.municipio],
+      ['zona_enee','Zona ENEE',p.zona_enee],
+      ['sector_utcd','Sector UTCD',p.sector_utcd],
+      ['ubicacion','Dirección',p.direccion],
+      ['ubicacion','Coordenadas',(p.lat&&p.lon)?(p.lat+', '+p.lon):null]
+    ].filter(([k,,v])=>show(k)&&v);
+    if(sec5.length){
+      addSec('Ubicación');
+      sec5.forEach(([,l,v])=>addRow(l,v));
+      y+=2;
+    }
+
+    // ──────────────── TÉCNICO ────────────────
+    if(show('circuitos_asociados')&&p.circuitos_asociados){
+      addSec('Circuitos asociados');
+      addPara(p.circuitos_asociados);
+    }
+
+    // ──────────────── RIESGOS ────────────────
+    if(show('riesgos')&&(riesgos||[]).length){
+      addSec('Riesgos principales (top 10)');
+      doc.setFontSize(9);doc.setTextColor(60);
+      (riesgos||[]).slice(0,10).forEach(r=>{
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        const col=r.nivel>=20?[163,45,45]:r.nivel>=10?[186,117,23]:[59,109,17];
+        doc.setFillColor(...col);doc.circle(17,y-1,1.5,'F');
+        doc.setTextColor(40);
+        const tx=`${r.consecutivo||'R-?'} · ${(r.riesgo||'').substring(0,70)} · N${r.nivel||0} · ${r.estado||''}`;
+        doc.text(tx,21,y);y+=5;
+      });
+      y+=2;
+    }
+
+    // ──────────────── PERMISOS ────────────────
+    if(show('permisos')&&(permisos||[]).length){
+      addSec('Permisos');
+      doc.setFontSize(9);doc.setTextColor(60);
+      (permisos||[]).slice(0,15).forEach(pe=>{
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        const tx=`• ${(pe.nombre_permiso||'').substring(0,45)} · ${pe.estado||''} · ${pe.entidad||''}${pe.fecha_vencimiento?' · Venc: '+fmtDate(pe.fecha_vencimiento):''}`;
+        doc.text(tx,15,y);y+=4.5;
+      });
+      y+=2;
+    }
+
+    // ──────────────── ACTUALIZACIONES ────────────────
+    if(show('actualizaciones')&&(updates||[]).length){
+      addSec('Actualizaciones recientes (últimas 10)');
+      doc.setFontSize(9);doc.setTextColor(60);
+      (updates||[]).slice(0,10).forEach(u=>{
+        if(y>260){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        doc.setFont(undefined,'bold');
+        doc.text(`${fmtDate(u.fecha)} · ${u.profiles?.full_name||'—'}`,15,y);y+=4;
+        doc.setFont(undefined,'normal');
+        if(u.notas){const ls=doc.splitTextToSize(u.notas.substring(0,200),175);ls.forEach(l=>{if(y>270){doc.addPage();addPdfWatermark(doc,false);y=20;}doc.text(l,17,y);y+=4;});}
+        y+=1;
+      });
+      y+=2;
+    }
+
+    // ──────────────── VISITAS TÉCNICAS ────────────────
+    if(show('visitas')&&(visitas||[]).length){
+      addSec('Visitas técnicas (últimas 10)');
+      doc.setFontSize(9);doc.setTextColor(60);
+      (visitas||[]).slice(0,10).forEach(v2=>{
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        const tx=`• ${fmtDate(v2.fecha)} · ${(v2.objetivo||'Sin objetivo').substring(0,70)}${v2.costo_visita?' · $'+fmtNum(v2.costo_visita):''}`;
+        doc.text(tx,15,y);y+=4.5;
+      });
+      y+=2;
+    }
+
+    // ──────────────── EVM ────────────────
+    if(show('evm')&&(evm||[]).length){
+      const e=evm[0];
+      addSec('EVM (última medición)');
+      addRow('Fecha',fmtDate(e.fecha));
+      addRow('PV (Valor planificado)','$'+fmtNum(e.pv||0));
+      if(e.ev!==null&&e.ev!==undefined)addRow('EV (Valor ganado)','$'+fmtNum(e.ev));
+      if(e.ac!==null&&e.ac!==undefined)addRow('AC (Costo real)','$'+fmtNum(e.ac));
+      if(e.ev&&e.pv)addRow('SPI',(e.ev/e.pv).toFixed(2));
+      if(e.ev&&e.ac)addRow('CPI',(e.ev/e.ac).toFixed(2));
+      y+=2;
+    }
+
+    // ──────────────── CAMBIOS ────────────────
+    if(show('cambios')&&(cambios||[]).length){
+      addSec('Gestión de cambios');
+      doc.setFontSize(9);doc.setTextColor(60);
+      const cEstados={};(cambios||[]).forEach(c=>{cEstados[c.estado]=(cEstados[c.estado]||0)+1;});
+      const resumenC=Object.entries(cEstados).map(([k,n])=>`${k}: ${n}`).join(' · ');
+      addRow('Resumen',resumenC);
+      const impC=(cambios||[]).reduce((s,c)=>s+(Number(c.impacto_costo)||0),0);
+      const impD=(cambios||[]).reduce((s,c)=>s+(Number(c.dias_impacto)||0),0);
+      addRow('Impacto total costo','$'+fmtNum(impC));
+      addRow('Impacto total días',impD);
+      y+=2;
+      (cambios||[]).slice(0,10).forEach(c=>{
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        const tx=`• ${c.numero_solicitud||'SC-?'} · ${(c.titulo||'').substring(0,55)} · ${c.estado||''} · ${c.prioridad||''}`;
+        doc.text(tx,15,y);y+=4.5;
+      });
+      y+=2;
+    }
+
+    // ──────────────── EDT ────────────────
+    if(show('edt')&&(edt||[]).length){
+      addSec('EDT / WBS');
+      const totalPeso=(edt||[]).reduce((s,c)=>s+(Number(c.peso)||0),0);
+      const avanceEDT=totalPeso?((edt||[]).reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0)/totalPeso):0;
+      const obras=(edt||[]).filter(c=>c.es_obra);
+      const pesoObra=obras.reduce((s,c)=>s+(Number(c.peso)||0),0);
+      const avanceObra=pesoObra?(obras.reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0)/pesoObra):0;
+      addRow('Componentes totales',(edt||[]).length);
+      addRow('Avance EDT ponderado',avanceEDT.toFixed(1)+'%');
+      addRow('Avance EDT obra',avanceObra.toFixed(1)+'%');
+      y+=2;
+    }
+
+    // ──────────────── TIMELINE / HITOS ────────────────
+    if(show('timeline')&&(hitos||[]).length){
+      addSec('Timeline / Hitos');
+      doc.setFontSize(9);doc.setTextColor(60);
+      (hitos||[]).slice(0,20).forEach(h=>{
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        const dot=h.estado==='Completado'?'●':h.estado==='Atrasado'?'▲':'○';
+        const tx=`${dot} ${(h.nombre||'').substring(0,50)} · plan: ${fmtDate(h.fecha_planificada)}${h.fecha_real?' · real: '+fmtDate(h.fecha_real):''} · ${h.estado||''}`;
+        doc.text(tx,15,y);y+=4.5;
+      });
+      y+=2;
+    }
+
+    // ──────────────── FOTOGRAFÍAS ────────────────
+    if(show('fotografias')&&(fotos||[]).length){
+      addSec('Fotografías');
+      // Dejamos los nombres/descripciones; cargar imágenes remotas en jsPDF puede fallar por CORS
+      doc.setFontSize(9);doc.setTextColor(60);
+      (fotos||[]).slice(0,6).forEach(f=>{
+        if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+        const tx=`• ${(f.descripcion||'Sin descripción').substring(0,60)} · ${fmtDate(f.fecha)}`;
+        doc.text(tx,15,y);y+=4;
+        if(f.url_imagen){doc.setTextColor(100,120,200);doc.textWithLink((f.url_imagen||'').substring(0,80),17,y,{url:f.url_imagen});doc.setTextColor(60);y+=5;}
+      });
+      y+=2;
+    }
+
+    // Footer (al final, cubre todas las páginas)
+    addPdfFooter(doc);
+
+    const fname=`proyecto_${(p.codigo||p.id||'reporte').replace(/[^a-z0-9]/gi,'_')}.pdf`;
+    doc.save(fname);
+    toast('PDF generado.');
+  }catch(err){
+    console.error(err);
+    toast('Error generando PDF: '+(err.message||err),true);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

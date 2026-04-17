@@ -175,9 +175,16 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
         <!-- ═══ FASE 3 · Timeline (módulo principal) ═══ -->
         <button class="nav-item" data-view="timeline"        onclick="nav('timeline')"><span class="nav-icon">📅</span>Timeline</button>
         <!-- ═══ FIN FASE 3 · Timeline ═══ -->
+        <!-- ═══ FASE 4 · KPIs y Subestaciones ═══ -->
+        <button class="nav-item" data-view="kpis"             onclick="nav('kpis')"><span class="nav-icon">🩺</span>KPIs / Salud PMO</button>
+        <button class="nav-item" data-view="subestaciones"    onclick="nav('subestaciones')"><span class="nav-icon">⚡</span>Subestaciones</button>
+        <!-- ═══ FIN FASE 4 · KPIs y Subestaciones ═══ -->
         <div class="nav-section">Organización</div>
         <button class="nav-item" data-view="equipo"      onclick="nav('equipo')"><span class="nav-icon">👥</span>Equipo</button>
         <div class="nav-section" id="nav-admin-sec" style="display:none">Admin</div>
+        <!-- ═══ FASE 4 · Gestión PMs (solo coordinador) ═══ -->
+        <button class="nav-item" id="nav-pms" style="display:none" data-view="pms" onclick="nav('pms')"><span class="nav-icon">👤</span>Gestión PMs</button>
+        <!-- ═══ FIN FASE 4 · Gestión PMs ═══ -->
         <button class="nav-item" id="nav-config" style="display:none" data-view="configuracion" onclick="nav('configuracion')"><span class="nav-icon">⚙️</span>Configuración</button>
       </div>
       <div class="sidebar-footer">
@@ -220,6 +227,11 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 <div class="modal-wrap" id="modal-edt"><div class="modal modal-lg" id="modal-edt-body"></div></div>
 <div class="modal-wrap" id="modal-hito"><div class="modal modal-lg" id="modal-hito-body"></div></div>
 <!-- ═══ FIN FASE 3 · Modales nuevos ═══ -->
+<!-- ═══ FASE 4 · Modales subestación ═══ -->
+<div class="modal-wrap" id="modal-subest"><div class="modal modal-lg" id="modal-subest-body"></div></div>
+<div class="modal-wrap" id="modal-subcomp"><div class="modal modal-lg" id="modal-subcomp-body"></div></div>
+<div class="modal-wrap" id="modal-subchk"><div class="modal" id="modal-subchk-body"></div></div>
+<!-- ═══ FIN FASE 4 · Modales subestación ═══ -->
 <script>
 // ═══════════════════════════ CONFIG & STATE ═══════════════════════════
 const SURL='https://sucbihsncxcaytwixbfh.supabase.co';
@@ -331,7 +343,7 @@ if(app.profile?.role==='lider'){
   document.getElementById('sidebar-av').textContent=(app.profile.full_name||'?').charAt(0).toUpperCase();
   document.getElementById('sidebar-name').textContent=app.profile.full_name||app.user.email;
   document.getElementById('sidebar-role').textContent={coordinador:'Coordinador',lider:'Líder',pm:'PM'}[app.profile.role]||app.profile.role;
-  if(isCoord()){document.getElementById('nav-admin-sec').style.display='';document.getElementById('nav-config').style.display='';}
+  if(isCoord()){document.getElementById('nav-admin-sec').style.display='';document.getElementById('nav-config').style.display='';/* FASE 4 */document.getElementById('nav-pms').style.display='';}
 }
 function showApp(){
   document.getElementById('auth-screen').style.display='none';
@@ -355,7 +367,7 @@ function nav(view,params={}){
   app.view=view;Object.assign(app,params);
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.view===view||(view==='proyecto_detalle'&&el.dataset.view==='proyectos')));
   document.getElementById('topbar-actions').innerHTML='';
-  const titles={dashboard:'Dashboard',proyectos:'Proyectos',proyecto_detalle:'Detalle de proyecto',adquisiciones:'Adquisiciones',actualizaciones:'Actualizaciones',visitas:'Visitas técnicas',equipo:'Equipo',mapa:'Mapa de proyectos',configuracion:'Configuración',cambios:'Gestión de cambios'/* FASE 2 */,timeline:'Timeline y hitos'/* FASE 3 */};
+  const titles={dashboard:'Dashboard',proyectos:'Proyectos',proyecto_detalle:'Detalle de proyecto',adquisiciones:'Adquisiciones',actualizaciones:'Actualizaciones',visitas:'Visitas técnicas',equipo:'Equipo',mapa:'Mapa de proyectos',configuracion:'Configuración',cambios:'Gestión de cambios'/* FASE 2 */,timeline:'Timeline y hitos'/* FASE 3 */,kpis:'KPIs y Salud PMO',pms:'Gestión de PMs',subestaciones:'Subestaciones'/* FASE 4 */};
   document.getElementById('topbar-title').textContent=titles[view]||view;
   render();
 }
@@ -376,6 +388,10 @@ async function render(){
     case'cambios':         await renderCambios();break;
     /* ═══ FASE 3 · vista Timeline ═══ */
     case'timeline':        await renderTimeline();break;
+    /* ═══ FASE 4 · nuevas vistas ═══ */
+    case'kpis':            await renderKPIs();break;
+    case'pms':             await renderPMs();break;
+    case'subestaciones':   await renderSubestaciones();break;
   }
 }
 
@@ -3102,6 +3118,1033 @@ async function saveHito(id, proyId){
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ═══════════════════  FIN FASE 3  ═════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════   FASE 4 — MÓDULOS 5, 6, 7   ═════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 5 · KPIs / SALUD PMO  (visualizador, solo lectura)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Calcula días desde una fecha (fecha string YYYY-MM-DD o timestamptz). */
+function daysSince(dateStr){
+  if(!dateStr)return null;
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(dateStr.length<=10?dateStr+'T00:00:00':dateStr);
+  return Math.round((today-d)/(1000*60*60*24));
+}
+
+/** Calcula la salud PMO del proyecto con reglas del requerimiento.
+ *  Devuelve {color:'rojo'|'amarillo'|'verde', reasons:[...], score}.  */
+function computeProjectHealth(data){
+  const{p,updates,permisos,riesgos,cambios,hitos,evm}=data;
+  const reasons=[];
+  let worst='verde'; // verde < amarillo < rojo
+  const escalate=(level)=>{
+    if(level==='rojo')worst='rojo';
+    else if(level==='amarillo'&&worst!=='rojo')worst='amarillo';
+  };
+
+  // Última actualización
+  const lastUpd=(updates||[])[0];
+  const dSinUpd=lastUpd?daysSince(lastUpd.fecha):null;
+
+  // ── ROJO ──
+  const permVenc=(permisos||[]).filter(pe=>pe.estado==='Vencido').length;
+  if(permVenc>0){escalate('rojo');reasons.push({level:'rojo',msg:`${permVenc} permiso(s) vencido(s)`});}
+
+  const hitosVencCrit=(hitos||[]).filter(h=>h.criticidad==='Crítica'&&h.estado!=='Completado'&&h.estado!=='Cancelado'&&h.fecha_planificada&&daysSince(h.fecha_planificada)>0).length;
+  if(hitosVencCrit>0){escalate('rojo');reasons.push({level:'rojo',msg:`${hitosVencCrit} hito(s) crítico(s) vencido(s)`});}
+
+  if(dSinUpd!==null&&dSinUpd>14&&p.estado_general==='Abierto'){escalate('rojo');reasons.push({level:'rojo',msg:`Sin actualización hace ${dSinUpd} días (>14)`});}
+
+  const riesgosAltosAbiertos=(riesgos||[]).filter(r=>(r.nivel||0)>=15&&!['Mitigado','Cerrado'].includes(r.estado)).length;
+  if(riesgosAltosAbiertos>0){escalate('rojo');reasons.push({level:'rojo',msg:`${riesgosAltosAbiertos} riesgo(s) alto(s)/crítico(s) abierto(s)`});}
+
+  // EVM — último cálculo SPI/CPI si existe
+  const lastEvm=(evm||[])[0];
+  let spi=null,cpi=null;
+  if(lastEvm&&lastEvm.pv&&lastEvm.ev)spi=lastEvm.ev/lastEvm.pv;
+  if(lastEvm&&lastEvm.ac&&lastEvm.ev)cpi=lastEvm.ev/lastEvm.ac;
+  if(spi!==null&&spi<0.85){escalate('rojo');reasons.push({level:'rojo',msg:`SPI ${spi.toFixed(2)} < 0.85 (atraso severo)`});}
+  if(cpi!==null&&cpi<0.85){escalate('rojo');reasons.push({level:'rojo',msg:`CPI ${cpi.toFixed(2)} < 0.85 (sobrecosto severo)`});}
+
+  // ── AMARILLO ──
+  if(dSinUpd!==null&&dSinUpd>7&&dSinUpd<=14&&p.estado_general==='Abierto'){escalate('amarillo');reasons.push({level:'amarillo',msg:`Sin actualización hace ${dSinUpd} días (>7)`});}
+
+  const hitosProxCrit=(hitos||[]).filter(h=>['Crítica','Alta'].includes(h.criticidad)&&h.estado!=='Completado'&&h.estado!=='Cancelado'&&h.fecha_planificada&&daysSince(h.fecha_planificada)>=-14&&daysSince(h.fecha_planificada)<=0).length;
+  if(hitosProxCrit>0){escalate('amarillo');reasons.push({level:'amarillo',msg:`${hitosProxCrit} hito(s) crítico(s) próximo(s)`});}
+
+  const cambiosAnalisis=(cambios||[]).filter(c=>c.estado==='En análisis').length;
+  if(cambiosAnalisis>0){escalate('amarillo');reasons.push({level:'amarillo',msg:`${cambiosAnalisis} cambio(s) en análisis`});}
+
+  if(spi!==null&&spi>=0.85&&spi<0.95){escalate('amarillo');reasons.push({level:'amarillo',msg:`SPI ${spi.toFixed(2)} entre 0.85 y 0.95`});}
+  if(cpi!==null&&cpi>=0.85&&cpi<0.95){escalate('amarillo');reasons.push({level:'amarillo',msg:`CPI ${cpi.toFixed(2)} entre 0.85 y 0.95`});}
+
+  // ── VERDE (si nada se disparó) ──
+  if(worst==='verde'&&reasons.length===0){
+    if(dSinUpd!==null&&dSinUpd<=7)reasons.push({level:'verde',msg:'Actualizado recientemente'});
+    else if(dSinUpd===null&&p.estado_general==='Abierto')reasons.push({level:'verde',msg:'Sin actualizaciones registradas aún'});
+    else reasons.push({level:'verde',msg:'Sin alertas críticas detectadas'});
+  }
+
+  return{color:worst,reasons,spi,cpi,dSinUpd,lastEvm};
+}
+
+async function renderKPIs(){
+  // Cargar proyectos para el selector
+  const{data:projs}=await sb.from('proyectos').select('id,codigo,nombre,estado_general').order('nombre');
+  window._kpiProjs=projs||[];
+
+  document.getElementById('topbar-actions').innerHTML='';
+  document.getElementById('main-content').innerHTML=`
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">🩺 Salud PMO del proyecto</div>
+      <div class="filter-bar" style="margin-bottom:0">
+        <select id="kpi-proy" onchange="loadKPIsForProject()" style="flex:1;max-width:480px">
+          <option value="">— Selecciona un proyecto —</option>
+          ${(projs||[]).map(p=>`<option value="${p.id}">${esc((p.codigo?p.codigo+' · ':'')+p.nombre)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div id="kpi-body"><div class="empty">Selecciona un proyecto para ver su salud PMO y KPIs.</div></div>
+  `;
+}
+
+async function loadKPIsForProject(){
+  const pid=v('kpi-proy');
+  if(!pid){document.getElementById('kpi-body').innerHTML=`<div class="empty">Selecciona un proyecto para ver su salud PMO y KPIs.</div>`;return;}
+
+  document.getElementById('kpi-body').innerHTML=`<div class="loading-state"><span class="spinner"></span> Calculando KPIs...</div>`;
+
+  const[{data:p},{data:updates},{data:permisos},{data:riesgos},{data:cambios},{data:hitos},{data:evm},{data:visitas},{data:adqLinks},{data:edt}]=await Promise.all([
+    sb.from('proyectos').select('*,profiles!proyectos_pm_id_fkey(full_name),portafolios(nombre)').eq('id',pid).single(),
+    sb.from('actualizaciones').select('fecha').eq('proyecto_id',pid).order('fecha',{ascending:false}),
+    sb.from('permisos_proyecto').select('estado,fecha_vencimiento').eq('proyecto_id',pid),
+    sb.from('riesgos_proyecto').select('nivel,estado,probabilidad,impacto').eq('proyecto_id',pid),
+    sb.from('cambios_proyecto').select('estado').eq('proyecto_id',pid),
+    sb.from('hitos_proyecto').select('*').eq('proyecto_id',pid),
+    sb.from('evm_linea_base').select('*').eq('proyecto_id',pid).order('fecha',{ascending:false}),
+    sb.from('visitas_tecnicas').select('costo_visita').eq('proyecto_id',pid),
+    sb.from('proyecto_adquisicion').select('adquisiciones(contrato_monto,contrato_pagado)').eq('proyecto_id',pid),
+    sb.from('edt_componentes').select('peso,avance,es_obra').eq('proyecto_id',pid)
+  ]);
+
+  if(!p){document.getElementById('kpi-body').innerHTML=`<div class="empty">Proyecto no encontrado.</div>`;return;}
+
+  const health=computeProjectHealth({p,updates,permisos,riesgos,cambios,hitos,evm});
+
+  // ── Métricas derivadas ──
+  const edtStats=computeEDTStats(edt,false);
+  const edtObraStats=computeEDTStats(edt,true);
+
+  const hitosVenc=(hitos||[]).filter(h=>h.estado!=='Completado'&&h.estado!=='Cancelado'&&h.fecha_planificada&&daysSince(h.fecha_planificada)>0).length;
+  const hitosProx=(hitos||[]).filter(h=>h.estado!=='Completado'&&h.estado!=='Cancelado'&&h.fecha_planificada&&daysSince(h.fecha_planificada)<=0&&daysSince(h.fecha_planificada)>=-14).length;
+
+  const permPend=(permisos||[]).filter(pe=>['Pendiente','En Trámite'].includes(pe.estado)).length;
+  const permVenc=(permisos||[]).filter(pe=>pe.estado==='Vencido').length;
+
+  const rAbiertos=(riesgos||[]).filter(r=>!['Mitigado','Cerrado'].includes(r.estado)).length;
+  const rAltos=(riesgos||[]).filter(r=>(r.nivel||0)>=15&&!['Mitigado','Cerrado'].includes(r.estado)).length;
+
+  const cambiosBy={};(cambios||[]).forEach(c=>{cambiosBy[c.estado]=(cambiosBy[c.estado]||0)+1;});
+
+  const costoVisitas=(visitas||[]).reduce((s,v)=>s+(Number(v.costo_visita)||0),0);
+
+  const adqs=(adqLinks||[]).map(l=>l.adquisiciones).filter(Boolean);
+  const contratado=adqs.reduce((s,a)=>s+(Number(a.contrato_monto)||0),0);
+  const pagado=adqs.reduce((s,a)=>s+(Number(a.contrato_pagado)||0),0);
+
+  // ── Render ──
+  const healthColor=health.color==='rojo'?'var(--rd)':health.color==='amarillo'?'var(--ad)':'var(--gd)';
+  const healthBg=health.color==='rojo'?'var(--rl)':health.color==='amarillo'?'var(--al)':'var(--gl)';
+  const healthEmoji=health.color==='rojo'?'🔴':health.color==='amarillo'?'🟡':'🟢';
+  const healthLabel={rojo:'Rojo — requiere intervención',amarillo:'Amarillo — atención',verde:'Verde — en marcha'}[health.color];
+
+  const reasonIcon=(lvl)=>lvl==='rojo'?'🔴':lvl==='amarillo'?'🟡':'🟢';
+
+  const kpiCard=(lbl,val,sub,color)=>`<div class="metric-card"><div class="lbl">${lbl}</div><div class="val"${color?` style="color:${color}"`:''}>${val}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+
+  document.getElementById('kpi-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:1rem;margin-bottom:1rem">
+      <div class="card" style="background:${healthBg};border-color:${healthColor}">
+        <div style="text-align:center">
+          <div style="font-size:48px;line-height:1">${healthEmoji}</div>
+          <div style="font-size:15px;font-weight:600;color:${healthColor};margin-top:8px">${healthLabel}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">cálculo en tiempo real</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">¿Por qué está en estado ${health.color}?</div>
+        ${health.reasons.length?health.reasons.map(r=>`<div style="padding:6px 0;border-bottom:0.5px solid var(--border);font-size:13px">${reasonIcon(r.level)} ${esc(r.msg)}</div>`).join(''):`<div class="empty" style="border:none">Sin razones específicas registradas.</div>`}
+      </div>
+    </div>
+
+    <h3 style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .6rem">📁 Información del proyecto</h3>
+    <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      ${kpiCard('Estado general',`<span class="badge ${(p.estado_general||'').toLowerCase().replace(/\s/g,'')}" style="font-size:13px">${esc(p.estado_general||'—')}</span>`,p.estado_proyecto||'')}
+      ${kpiCard('PM',`<span style="font-size:14px">${esc(p.profiles?.full_name||'—')}</span>`,esc(p.portafolios?.nombre||''))}
+      ${kpiCard('Inversión USD','$'+fmtNum(p.inversion_usd||0),'Ejecutado L'+fmtNum(p.ejecutado_hnl||0))}
+      ${kpiCard('Días sin actualización',health.dSinUpd===null?'—':health.dSinUpd,(updates||[]).length+' actualizaciones totales',health.dSinUpd>14?'var(--rd)':health.dSinUpd>7?'var(--ad)':'var(--gd)')}
+    </div>
+
+    <h3 style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .6rem">📊 Avances (fuentes: proyecto y EDT)</h3>
+    <div class="metric-grid" style="grid-template-columns:repeat(6,minmax(0,1fr))">
+      ${kpiCard('% Avance proyecto',(p.pct_avance_proyecto||0)+'%','manual','var(--bd)')}
+      ${kpiCard('% Avance obra',(p.pct_ejecucion_obra||0)+'%','manual',(p.pct_ejecucion_obra||0)>=80?'var(--gd)':(p.pct_ejecucion_obra||0)>=40?'var(--p)':'var(--ad)')}
+      ${kpiCard('% Avance financiero',(p.pct_avance_financiero||0)+'%','manual','var(--tld)')}
+      ${kpiCard('Avance EDT total',edtStats.pct+'%',edtStats.count+' comp.')}
+      ${kpiCard('Avance EDT obra',edtObraStats.pct+'%',edtObraStats.count+' comp.')}
+      ${kpiCard('SPI · CPI',(health.spi!==null?health.spi.toFixed(2):'—')+' · '+(health.cpi!==null?health.cpi.toFixed(2):'—'),health.lastEvm?('último: '+fmtDate(health.lastEvm.fecha)):'sin EVM')}
+    </div>
+
+    <h3 style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .6rem">⚠️ Riesgos, permisos, cambios, hitos</h3>
+    <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      ${kpiCard('Riesgos abiertos',rAbiertos,rAltos+' altos/críticos',rAltos?'var(--rd)':'var(--gd)')}
+      ${kpiCard('Permisos',permPend+' pendientes',permVenc+' vencidos',permVenc?'var(--rd)':permPend?'var(--ad)':'var(--gd)')}
+      ${kpiCard('Hitos vencidos / próximos',hitosVenc+' / '+hitosProx,'(≤14 días)',hitosVenc?'var(--rd)':hitosProx?'var(--ad)':'var(--gd)')}
+      ${kpiCard('Cambios por estado',(cambios||[]).length,Object.entries(cambiosBy).slice(0,3).map(([k,n])=>k+':'+n).join(' · ')||'sin cambios')}
+    </div>
+
+    <h3 style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:1rem 0 .6rem">💰 Visitas y adquisiciones</h3>
+    <div class="metric-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      ${kpiCard('Visitas técnicas',(visitas||[]).length,'$'+fmtNum(costoVisitas)+' costo acumulado')}
+      ${kpiCard('Adquisiciones vinculadas',adqs.length,'')}
+      ${kpiCard('Monto contratado','$'+fmtNum(contratado),'')}
+      ${kpiCard('Monto pagado','$'+fmtNum(pagado),contratado?Math.round(pagado/contratado*100)+'% ejecutado':'')}
+    </div>
+
+    <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-ghost" onclick="nav('proyecto_detalle',{projectId:'${p.id}'})">→ Ver detalle del proyecto</button>
+      <button class="btn-ghost" onclick="exportProyectoPDF('${p.id}')">⬇ PDF del proyecto</button>
+    </div>
+  `;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 6 · GESTIÓN DE PMs  (solo coordinador)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function renderPMs(){
+  // Bloqueo hard: solo coordinador
+  if(!isCoord()){
+    document.getElementById('main-content').innerHTML=`<div class="empty">🔒 Acceso restringido. Solo el coordinador puede ver la gestión de PMs.</div>`;
+    document.getElementById('topbar-actions').innerHTML='';
+    return;
+  }
+
+  document.getElementById('topbar-actions').innerHTML='';
+
+  // Cargar PMs, proyectos, y datos relacionados para métricas
+  const[{data:pms},{data:lideres},{data:projs},{data:updates},{data:cambios},{data:hitos},{data:permisos},{data:visitas}]=await Promise.all([
+    sb.from('profiles').select('id,full_name,email,role,lider_id,activo').eq('role','pm').eq('activo',true).order('full_name'),
+    sb.from('profiles').select('id,full_name').eq('role','lider').eq('activo',true).order('full_name'),
+    sb.from('proyectos').select('id,nombre,codigo,pm_id,estado_general,pct_avance_proyecto,pct_ejecucion_obra,inversion_usd'),
+    sb.from('actualizaciones').select('proyecto_id,fecha').order('fecha',{ascending:false}).limit(1000),
+    sb.from('cambios_proyecto').select('proyecto_id,estado'),
+    sb.from('hitos_proyecto').select('proyecto_id,fecha_planificada,estado,criticidad'),
+    sb.from('permisos_proyecto').select('proyecto_id,estado'),
+    sb.from('visitas_tecnicas').select('proyecto_id')
+  ]);
+
+  // Índice rápido de actualizaciones más recientes por proyecto
+  const lastUpdBy={};
+  (updates||[]).forEach(u=>{
+    if(!lastUpdBy[u.proyecto_id])lastUpdBy[u.proyecto_id]=u.fecha;
+  });
+
+  // Agrupar por PM
+  const byPm={};
+  (pms||[]).forEach(pm=>{
+    byPm[pm.id]={pm, projects:[], lider_id:pm.lider_id};
+  });
+  (projs||[]).forEach(p=>{
+    if(!p.pm_id||!byPm[p.pm_id])return;
+    byPm[p.pm_id].projects.push(p);
+  });
+
+  // Calcular métricas por PM
+  const rows=Object.values(byPm).map(g=>{
+    const ids=g.projects.map(p=>p.id);
+    const abiertos=g.projects.filter(p=>p.estado_general==='Abierto').length;
+    const cerrados=g.projects.filter(p=>p.estado_general==='Cerrado').length;
+    const enRiesgo=g.projects.filter(p=>p.estado_general==='En Riesgo').length;
+    const inversionTotal=g.projects.reduce((s,p)=>s+(Number(p.inversion_usd)||0),0);
+    const avgAvProy=g.projects.length?Math.round(g.projects.reduce((s,p)=>s+(p.pct_avance_proyecto||0),0)/g.projects.length):0;
+    const avgAvObra=g.projects.length?Math.round(g.projects.reduce((s,p)=>s+(p.pct_ejecucion_obra||0),0)/g.projects.length):0;
+
+    // Stale: proyectos abiertos sin actualización en 7+ días
+    const stale=g.projects.filter(p=>{
+      if(p.estado_general!=='Abierto')return false;
+      const d=lastUpdBy[p.id];
+      if(!d)return true;
+      return daysSince(d)>7;
+    }).length;
+
+    // Cambios pendientes (Solicitado + En análisis) del PM
+    const cambiosPend=(cambios||[]).filter(c=>ids.includes(c.proyecto_id)&&['Solicitado','En análisis'].includes(c.estado)).length;
+
+    // Hitos vencidos del PM
+    const hitosVenc=(hitos||[]).filter(h=>ids.includes(h.proyecto_id)&&h.estado!=='Completado'&&h.estado!=='Cancelado'&&h.fecha_planificada&&daysSince(h.fecha_planificada)>0).length;
+
+    // Permisos vencidos del PM
+    const permVenc=(permisos||[]).filter(pe=>ids.includes(pe.proyecto_id)&&pe.estado==='Vencido').length;
+
+    // Actualizaciones y visitas del PM
+    const updsCount=(updates||[]).filter(u=>ids.includes(u.proyecto_id)).length;
+    const visitasCount=(visitas||[]).filter(vi=>ids.includes(vi.proyecto_id)).length;
+
+    // Semáforo de salud de cartera
+    let salud='verde';
+    const razones=[];
+    if(permVenc>0){salud='rojo';razones.push(`${permVenc} permiso(s) vencido(s)`);}
+    if(hitosVenc>2){salud='rojo';razones.push(`${hitosVenc} hitos vencidos`);}
+    if(stale>g.projects.length/2&&g.projects.length>0){salud='rojo';razones.push('cartera >50% sin actualizar');}
+    if(enRiesgo>0&&salud!=='rojo'){salud='amarillo';razones.push(`${enRiesgo} proyecto(s) en riesgo`);}
+    if(stale>0&&salud==='verde'){salud='amarillo';razones.push(`${stale} proy. sin actualizar`);}
+    if(cambiosPend>3&&salud==='verde'){salud='amarillo';razones.push(`${cambiosPend} cambios pendientes`);}
+
+    return{
+      pm:g.pm, lider_id:g.lider_id,
+      projects:g.projects,
+      counts:{total:g.projects.length,abiertos,cerrados,enRiesgo,stale},
+      metrics:{inversionTotal,avgAvProy,avgAvObra,updsCount,visitasCount,cambiosPend,hitosVenc,permVenc},
+      salud, razones
+    };
+  });
+
+  window._pmsRows=rows;
+  window._pmsLideres=lideres||[];
+
+  document.getElementById('main-content').innerHTML=`
+    <div class="alert info" style="margin-bottom:1rem">
+      <span>🔒</span>
+      <div>Vista exclusiva para coordinador. Muestra la carga y salud de cartera por cada PM activo.</div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="pmf-search" placeholder="🔍 Buscar PM..." oninput="filterPMs()" style="flex:1;min-width:160px">
+      <select id="pmf-lider" onchange="filterPMs()">
+        <option value="">Todos los líderes</option>
+        ${(lideres||[]).map(l=>`<option value="${l.id}">${esc(l.full_name)}</option>`).join('')}
+        <option value="__none__">Sin líder asignado</option>
+      </select>
+      <select id="pmf-salud" onchange="filterPMs()">
+        <option value="">Toda salud</option>
+        <option value="rojo">🔴 Rojo</option>
+        <option value="amarillo">🟡 Amarillo</option>
+        <option value="verde">🟢 Verde</option>
+      </select>
+    </div>
+
+    <div id="pms-body"></div>
+  `;
+  renderPMsBody(rows);
+}
+
+function filterPMs(){
+  const s=(v('pmf-search')||'').toLowerCase();
+  const lid=v('pmf-lider'),sal=v('pmf-salud');
+  const arr=(window._pmsRows||[]).filter(r=>{
+    if(s&&!(r.pm.full_name||'').toLowerCase().includes(s)&&!(r.pm.email||'').toLowerCase().includes(s))return false;
+    if(lid==='__none__'&&r.lider_id)return false;
+    if(lid&&lid!=='__none__'&&r.lider_id!==lid)return false;
+    if(sal&&r.salud!==sal)return false;
+    return true;
+  });
+  renderPMsBody(arr);
+}
+
+function renderPMsBody(rows){
+  const totPms=rows.length;
+  const totProjs=rows.reduce((s,r)=>s+r.counts.total,0);
+  const totInv=rows.reduce((s,r)=>s+r.metrics.inversionTotal,0);
+  const bySalud={rojo:0,amarillo:0,verde:0};
+  rows.forEach(r=>{bySalud[r.salud]++;});
+
+  const resumen=`
+    <div class="metric-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:1rem">
+      <div class="metric-card"><div class="lbl">PMs activos</div><div class="val">${totPms}</div></div>
+      <div class="metric-card"><div class="lbl">Proyectos asignados</div><div class="val">${totProjs}</div></div>
+      <div class="metric-card"><div class="lbl">Inversión gestionada</div><div class="val" style="font-size:22px">$${fmtNum(totInv)}</div></div>
+      <div class="metric-card"><div class="lbl">Cartera 🔴 / 🟡 / 🟢</div><div class="val" style="font-size:20px"><span style="color:var(--rd)">${bySalud.rojo}</span> / <span style="color:var(--ad)">${bySalud.amarillo}</span> / <span style="color:var(--gd)">${bySalud.verde}</span></div></div>
+      <div class="metric-card"><div class="lbl">Promedio proyectos/PM</div><div class="val">${totPms?(totProjs/totPms).toFixed(1):0}</div></div>
+    </div>`;
+
+  const tabla=rows.length?`<div class="table-wrap"><table>
+    <thead><tr>
+      <th>PM</th><th style="text-align:center">Salud</th>
+      <th style="text-align:center">Proy.</th><th style="text-align:center">Abiertos</th>
+      <th style="text-align:center">Stale 7d</th><th style="text-align:right">Inversión USD</th>
+      <th style="min-width:120px">Avance proy.</th><th style="min-width:120px">Avance obra</th>
+      <th style="text-align:center">Cambios</th><th style="text-align:center">Hitos ven.</th><th style="text-align:center">Perm. ven.</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows.map(r=>{
+      const sEmoji=r.salud==='rojo'?'🔴':r.salud==='amarillo'?'🟡':'🟢';
+      const barCol=(pct)=>pct>=80?'green':pct>=40?'':'amber';
+      return `<tr>
+        <td>
+          <strong style="font-size:13px">${esc(r.pm.full_name||'—')}</strong>
+          <div style="font-size:11px;color:var(--muted)">${esc(r.pm.email||'')}</div>
+        </td>
+        <td style="text-align:center;font-size:18px" title="${esc(r.razones.join(' · ')||'Sin alertas')}">${sEmoji}</td>
+        <td style="text-align:center;font-size:13px">${r.counts.total}</td>
+        <td style="text-align:center;font-size:13px">${r.counts.abiertos}${r.counts.enRiesgo?` <span style="color:var(--rd);font-size:11px">·${r.counts.enRiesgo}⚠</span>`:''}</td>
+        <td style="text-align:center;font-size:13px;color:${r.counts.stale?'var(--rd)':'var(--gd)'}">${r.counts.stale}</td>
+        <td style="text-align:right;font-size:12px">$${fmtNum(r.metrics.inversionTotal)}</td>
+        <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${barCol(r.metrics.avgAvProy)}" style="width:${r.metrics.avgAvProy}%"></div></div><span class="prog-pct">${r.metrics.avgAvProy}%</span></div></td>
+        <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${barCol(r.metrics.avgAvObra)}" style="width:${r.metrics.avgAvObra}%"></div></div><span class="prog-pct">${r.metrics.avgAvObra}%</span></div></td>
+        <td style="text-align:center;font-size:13px">${r.metrics.cambiosPend||'—'}</td>
+        <td style="text-align:center;font-size:13px;color:${r.metrics.hitosVenc?'var(--rd)':'var(--text)'}">${r.metrics.hitosVenc||'—'}</td>
+        <td style="text-align:center;font-size:13px;color:${r.metrics.permVenc?'var(--rd)':'var(--text)'}">${r.metrics.permVenc||'—'}</td>
+        <td><button class="icon-btn" onclick="openPmDetail('${r.pm.id}')" title="Ver cartera">👁</button></td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`:`<div class="empty">Sin PMs que coincidan con los filtros.</div>`;
+
+  document.getElementById('pms-body').innerHTML=resumen+tabla;
+}
+
+function openPmDetail(pmId){
+  const row=(window._pmsRows||[]).find(r=>r.pm.id===pmId);
+  if(!row)return toast('PM no encontrado.',true);
+  const{pm,projects,metrics,counts,razones,salud}=row;
+  const sEmoji=salud==='rojo'?'🔴':salud==='amarillo'?'🟡':'🟢';
+
+  // Reusamos modal-confirm para no crear un nuevo modal específico
+  document.getElementById('modal-confirm-body').innerHTML=`
+    <h2>${sEmoji} Cartera de ${esc(pm.full_name||'')}</h2>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:1rem">${esc(pm.email||'')}</div>
+
+    <div class="metric-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:1rem">
+      <div class="metric-card"><div class="lbl">Proyectos</div><div class="val" style="font-size:22px">${counts.total}</div><div class="sub">${counts.abiertos} abiertos · ${counts.cerrados} cerrados</div></div>
+      <div class="metric-card"><div class="lbl">Inversión total</div><div class="val" style="font-size:18px">$${fmtNum(metrics.inversionTotal)}</div></div>
+      <div class="metric-card"><div class="lbl">Avance prom.</div><div class="val" style="font-size:22px">${metrics.avgAvObra}%</div><div class="sub">obra</div></div>
+    </div>
+
+    ${razones.length?`<div class="alert ${salud==='rojo'?'danger':salud==='amarillo'?'warn':'ok'}" style="margin-bottom:1rem"><span>${sEmoji}</span><div><strong>Motivos de salud ${salud}:</strong><br>${razones.map(r=>esc(r)).join(' · ')}</div></div>`:''}
+
+    <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Proyectos asignados</div>
+    ${projects.length?`<div style="max-height:320px;overflow-y:auto;border:0.5px solid var(--border);border-radius:8px">
+      ${projects.map(p=>`<div style="padding:9px 12px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="closeM('modal-confirm');nav('proyecto_detalle',{projectId:'${p.id}'})">
+        <div style="flex:1;min-width:0">
+          <strong style="font-size:13px">${esc(p.nombre||'')}</strong>
+          <div style="font-size:11px;color:var(--muted)">${esc(p.codigo||'')} · ${(p.pct_ejecucion_obra||0)}% obra</div>
+        </div>
+        <span class="badge ${(p.estado_general||'').toLowerCase().replace(/\s/g,'')}">${esc(p.estado_general||'')}</span>
+      </div>`).join('')}
+    </div>`:`<div class="empty">Sin proyectos asignados.</div>`}
+
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-confirm')">Cerrar</button>
+    </div>`;
+  openM('modal-confirm');
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MÓDULO 7 · SUBESTACIONES ESPECIALIZADAS (módulo independiente)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SUBEST_AREAS=['Datos generales','Lado AT','Lado MT','Transformador','Obra civil','Obra electromecánica','PC&M','Pruebas','Puesta en servicio'];
+
+const SUBEST_BADGE={
+  'Pendiente':'pendiente','En ejecución':'en_proceso','Completado':'aprobado',
+  'En pausa':'pausado','Bloqueado':'rechazado','No aplica':'cerrado'
+};
+const SUBCHK_BADGE={
+  'Pendiente':'pendiente','En proceso':'en_proceso','Completado':'aprobado','No aplica':'cerrado'
+};
+
+// ─────────────────────  VISTA PRINCIPAL (sidebar)  ─────────────────────
+
+async function renderSubestaciones(){
+  const[{data:subs},{data:projs}]=await Promise.all([
+    sb.from('subestaciones').select('*,proyectos(id,nombre,codigo,pm_id,estado_general)').order('created_at',{ascending:false}),
+    sb.from('proyectos').select('id,nombre,codigo,naturaleza').order('nombre')
+  ]);
+  window._subestData=subs||[];
+  window._subestProjs=projs||[];
+
+  document.getElementById('topbar-actions').innerHTML=`<button class="btn-primary" onclick="openSubestForm()">+ Nueva gestión de subestación</button>`;
+
+  document.getElementById('main-content').innerHTML=`
+    <div class="alert info" style="margin-bottom:1rem">
+      <span>⚡</span>
+      <div>Este módulo gestiona subestaciones con nivel técnico detallado (componentes, checklist por área, unifilares). Es <strong>complementario</strong> a la Ficha Técnica de subestación que ya existe en cada proyecto.</div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="sef-search" placeholder="🔍 Buscar por nombre o proyecto..." oninput="filterSubest()" style="flex:1;min-width:200px">
+      <select id="sef-proy" onchange="filterSubest()"><option value="">Todos los proyectos</option>${(projs||[]).map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('')}</select>
+      <select id="sef-tipo" onchange="filterSubest()"><option value="">Todo tipo</option>${(app.lists['subest_intervencion']||[]).map(t=>`<option>${t}</option>`).join('')}</select>
+    </div>
+
+    <div id="subest-body"></div>
+  `;
+  renderSubestList(subs||[]);
+}
+
+function filterSubest(){
+  const s=(v('sef-search')||'').toLowerCase();
+  const pid=v('sef-proy'),tipo=v('sef-tipo');
+  const arr=(window._subestData||[]).filter(se=>{
+    const proj=se.proyectos||{};
+    if(s&&!(se.nombre_subestacion||'').toLowerCase().includes(s)&&!(proj.nombre||'').toLowerCase().includes(s))return false;
+    if(pid&&proj.id!==pid)return false;
+    if(tipo&&se.tipo_intervencion!==tipo)return false;
+    return true;
+  });
+  renderSubestList(arr);
+}
+
+function renderSubestList(subs){
+  if(!subs.length){
+    document.getElementById('subest-body').innerHTML=`<div class="empty">Sin subestaciones registradas. Crea la primera con el botón "+ Nueva gestión de subestación".</div>`;
+    return;
+  }
+  document.getElementById('subest-body').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem">
+    ${subs.map(se=>{
+      const proj=se.proyectos||{};
+      return `<div class="card" style="padding:1rem;cursor:pointer" onclick="openSubestDetail('${se.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">${esc(se.tipo_intervencion||'—')}</div>
+            <strong style="font-size:15px;display:block;margin-top:2px">${esc(se.nombre_subestacion||'Sin nombre')}</strong>
+          </div>
+          <span class="badge activo">⚡</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">📁 ${esc(proj.nombre||'—')}</div>
+        <div style="display:flex;gap:12px;font-size:12px;color:var(--text);margin-top:10px;flex-wrap:wrap">
+          ${se.nivel_tension_at?`<span>AT: <strong>${esc(String(se.nivel_tension_at))}</strong> kV</span>`:''}
+          ${se.nivel_tension_mt?`<span>MT: <strong>${esc(String(se.nivel_tension_mt))}</strong> kV</span>`:''}
+          ${se.capacidad_mva?`<span>Cap: <strong>${esc(String(se.capacidad_mva))}</strong> MVA</span>`:''}
+          ${se.cantidad_bahias?`<span>${esc(String(se.cantidad_bahias))} bahía(s)</span>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ─────────────────────  FORMULARIO GENERAL DE SUBESTACIÓN  ─────────────────────
+
+async function openSubestForm(id=null){
+  let se={};
+  if(id){
+    const{data}=await sb.from('subestaciones').select('*').eq('id',id).single();
+    se=data||{};
+  }
+  const{data:projs}=await sb.from('proyectos').select('id,nombre,codigo').order('nombre');
+  const selProy=(val)=>`<select id="sf-proy"${id?' disabled':''}><option value="">— Seleccionar —</option>${(projs||[]).map(p=>`<option value="${p.id}"${p.id===val?' selected':''}>${esc((p.codigo?p.codigo+' · ':'')+p.nombre)}</option>`).join('')}</select>`;
+  const selTipo=(val)=>{const opts=(app.lists['subest_intervencion']||['Nueva','Ampliación','Repotenciación','Modernización','Rehabilitación']).map(o=>`<option${o===val?' selected':''}>${esc(o)}</option>`).join('');return`<select id="sf-tipo"><option value="">— Seleccionar —</option>${opts}</select>`;};
+
+  document.getElementById('modal-subest-body').innerHTML=`
+    <h2>${id?'✏️ Editar subestación':'➕ Nueva gestión de subestación'}</h2>
+    <div class="form-grid">
+      <div class="field"><label>Proyecto *</label>${selProy(se.proyecto_id||'')}</div>
+      <div class="field"><label>Nombre de la subestación *</label><input type="text" id="sf-nombre" value="${esc(se.nombre_subestacion||'')}" placeholder="S/E ..."></div>
+      <div class="field"><label>Tipo de intervención</label>${selTipo(se.tipo_intervencion||'')}</div>
+      <div class="field"><label>Configuración de barra</label><input type="text" id="sf-barra" value="${esc(se.configuracion_barra||'')}" placeholder="Ej. Barra simple, doble barra..."></div>
+      <div class="field"><label>Nivel tensión AT (kV)</label><input type="number" step="0.01" id="sf-at" value="${se.nivel_tension_at||''}"></div>
+      <div class="field"><label>Nivel tensión MT (kV)</label><input type="number" step="0.01" id="sf-mt" value="${se.nivel_tension_mt||''}"></div>
+      <div class="field"><label>Capacidad total (MVA)</label><input type="number" step="0.01" id="sf-mva" value="${se.capacidad_mva||''}"></div>
+      <div class="field"><label>Cantidad de bahías</label><input type="number" id="sf-bahias" value="${se.cantidad_bahias||''}"></div>
+      <div class="field"><label>Cantidad de transformadores</label><input type="number" id="sf-trafos" value="${se.cantidad_transformadores||''}"></div>
+      <div class="field"><label>Ubicación técnica</label><input type="text" id="sf-ubi" value="${esc(se.ubicacion_tecnica||'')}"></div>
+      <div class="field full"><label>Descripción general</label><textarea id="sf-desc" rows="2">${esc(se.descripcion_general||'')}</textarea></div>
+
+      <div class="field full" style="margin-top:8px"><label style="color:var(--pd);font-weight:600">Imágenes y unifilares</label></div>
+      <div class="field"><label>URL unifilar actual</label><input type="url" id="sf-uni-act" value="${esc(se.unifilar_actual_url||'')}" placeholder="https://..."></div>
+      <div class="field"><label>URL unifilar propuesto</label><input type="url" id="sf-uni-pro" value="${esc(se.unifilar_propuesto_url||'')}" placeholder="https://..."></div>
+      <div class="field"><label>URL imagen 1</label><input type="url" id="sf-img1" value="${esc(se.imagen_1_url||'')}"></div>
+      <div class="field"><label>URL imagen 2</label><input type="url" id="sf-img2" value="${esc(se.imagen_2_url||'')}"></div>
+
+      <div class="field full"><label>Observaciones</label><textarea id="sf-obs" rows="2">${esc(se.observaciones||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-subest')">Cancelar</button>
+      <button class="btn-primary" onclick="saveSubest('${id||''}')">💾 Guardar</button>
+    </div>`;
+  openM('modal-subest');
+}
+
+async function saveSubest(id){
+  const proyId=v('sf-proy');
+  const nombre=v('sf-nombre');
+  if(!proyId)return toast('Selecciona un proyecto.',true);
+  if(!nombre)return toast('El nombre es obligatorio.',true);
+  const payload={
+    proyecto_id:proyId,
+    nombre_subestacion:nombre,
+    tipo_intervencion:v('sf-tipo')||null,
+    nivel_tension_at:numv('sf-at'),
+    nivel_tension_mt:numv('sf-mt'),
+    capacidad_mva:numv('sf-mva'),
+    configuracion_barra:v('sf-barra')||null,
+    cantidad_bahias:parseInt(v('sf-bahias'))||null,
+    cantidad_transformadores:parseInt(v('sf-trafos'))||null,
+    ubicacion_tecnica:v('sf-ubi')||null,
+    descripcion_general:v('sf-desc')||null,
+    unifilar_actual_url:v('sf-uni-act')||null,
+    unifilar_propuesto_url:v('sf-uni-pro')||null,
+    imagen_1_url:v('sf-img1')||null,
+    imagen_2_url:v('sf-img2')||null,
+    observaciones:v('sf-obs')||null,
+    updated_at:new Date().toISOString()
+  };
+  const{data,error}=id
+    ?await sb.from('subestaciones').update(payload).eq('id',id).select().single()
+    :await sb.from('subestaciones').insert(payload).select().single();
+  if(error)return toast('Error: '+error.message,true);
+  closeM('modal-subest');toast(id?'Subestación actualizada.':'Subestación creada.');
+  if(data&&data.id){openSubestDetail(data.id);}else{render();}
+}
+
+// ─────────────────────  DETALLE/GESTIÓN DE UNA SUBESTACIÓN  ─────────────────────
+
+async function openSubestDetail(id){
+  const[{data:se},{data:comps},{data:chks}]=await Promise.all([
+    sb.from('subestaciones').select('*,proyectos(id,nombre,codigo,pm_id,naturaleza)').eq('id',id).single(),
+    sb.from('subestacion_componentes').select('*').eq('subestacion_id',id).order('orden'),
+    sb.from('subestacion_checklist').select('*').eq('subestacion_id',id).order('orden')
+  ]);
+  if(!se){toast('Subestación no encontrada.',true);return;}
+  window._subestDetail={se,comps:comps||[],chks:chks||[]};
+
+  const proj=se.proyectos||{};
+  const canEditHere=canEdit({pm_id:proj.pm_id});
+
+  // Avance total ponderado
+  const totalPeso=(comps||[]).reduce((s,c)=>s+(Number(c.peso)||0),0);
+  const pctTotal=totalPeso>0?((comps||[]).reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0)/totalPeso):0;
+
+  // Avance por área
+  const avancePorArea={};
+  SUBEST_AREAS.forEach(a=>{
+    const inArea=(comps||[]).filter(c=>c.area===a);
+    const pa=inArea.reduce((s,c)=>s+(Number(c.peso)||0),0);
+    const av=pa>0?(inArea.reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0)/pa):0;
+    avancePorArea[a]={count:inArea.length,peso:pa,pct:Math.round(av*10)/10};
+  });
+
+  document.getElementById('topbar-actions').innerHTML=`
+    <button class="btn-ghost" onclick="nav('subestaciones')">← Subestaciones</button>
+    <button class="btn-ghost" onclick="exportSubestPDF('${se.id}')">⬇ PDF técnico</button>
+    ${canEditHere?`<button class="btn-primary" onclick="openSubestForm('${se.id}')">✏️ Editar datos</button>`:''}`;
+
+  document.getElementById('topbar-title').textContent='Subestación: '+se.nombre_subestacion;
+
+  // Renderizar detalle completo inline (no cambia app.view para simplicidad)
+  const mainContent=document.getElementById('main-content');
+  mainContent.innerHTML=`
+    <div class="detail-header">
+      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <div style="font-size:11px;color:var(--muted)">${esc(se.tipo_intervencion||'—')}</div>
+          <h1>${esc(se.nombre_subestacion)}</h1>
+          <div class="detail-meta" style="margin-top:8px">
+            <span class="meta-chip">📁 <a class="link-btn" style="text-decoration:none" onclick="nav('proyecto_detalle',{projectId:'${proj.id}'})">${esc(proj.nombre||'—')}</a></span>
+            ${se.nivel_tension_at?`<span class="meta-chip">AT: ${esc(String(se.nivel_tension_at))} kV</span>`:''}
+            ${se.nivel_tension_mt?`<span class="meta-chip">MT: ${esc(String(se.nivel_tension_mt))} kV</span>`:''}
+            ${se.capacidad_mva?`<span class="meta-chip">${esc(String(se.capacidad_mva))} MVA</span>`:''}
+            ${se.cantidad_bahias?`<span class="meta-chip">${esc(String(se.cantidad_bahias))} bahías</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--muted)">Avance especializado total</div>
+          <div style="font-size:32px;font-weight:600;color:${pctTotal>=80?'var(--gd)':pctTotal>=40?'var(--p)':'var(--ad)'}">${Math.round(pctTotal*10)/10}%</div>
+          <div style="font-size:11px;color:var(--hint)">(ponderado por componentes)</div>
+        </div>
+      </div>
+    </div>
+
+    ${(se.unifilar_actual_url||se.unifilar_propuesto_url||se.imagen_1_url||se.imagen_2_url)?`
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">🖼 Imágenes y unifilares</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+        ${se.unifilar_actual_url?`<div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Unifilar actual</div><a href="${esc(se.unifilar_actual_url)}" target="_blank"><img src="${esc(se.unifilar_actual_url)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)" onerror="this.style.display='none'"></a></div>`:''}
+        ${se.unifilar_propuesto_url?`<div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Unifilar propuesto</div><a href="${esc(se.unifilar_propuesto_url)}" target="_blank"><img src="${esc(se.unifilar_propuesto_url)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)" onerror="this.style.display='none'"></a></div>`:''}
+        ${se.imagen_1_url?`<div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Imagen 1</div><a href="${esc(se.imagen_1_url)}" target="_blank"><img src="${esc(se.imagen_1_url)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)" onerror="this.style.display='none'"></a></div>`:''}
+        ${se.imagen_2_url?`<div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Imagen 2</div><a href="${esc(se.imagen_2_url)}" target="_blank"><img src="${esc(se.imagen_2_url)}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)" onerror="this.style.display='none'"></a></div>`:''}
+      </div>
+    </div>`:''}
+
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-title">📊 Avance por área</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.8rem">
+        ${SUBEST_AREAS.map(a=>{
+          const stats=avancePorArea[a];
+          return `<div style="padding:10px;background:var(--bg);border-radius:8px">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${esc(a)}</div>
+            <div style="font-size:10px;color:var(--hint);margin-bottom:6px">${stats.count} comp · peso ${fmtNum(stats.peso)}</div>
+            <div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${stats.pct>=80?'green':stats.pct>=40?'':'amber'}" style="width:${stats.pct}%"></div></div><span class="prog-pct">${stats.pct}%</span></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>Componentes técnicos por área</h2>
+      ${canEditHere?`<div style="display:flex;gap:6px"><button class="btn-primary" onclick="openSubcompForm(null,'${se.id}')">+ Agregar componente</button><button class="btn-ghost" onclick="openSubchkForm(null,'${se.id}')">+ Agregar ítem checklist</button></div>`:''}
+    </div>
+
+    <div id="subest-areas"></div>
+  `;
+
+  renderSubestAreas(se.id, comps||[], chks||[], canEditHere);
+}
+
+function renderSubestAreas(subId, comps, chks, canEditHere){
+  const html=SUBEST_AREAS.map(area=>{
+    const ac=(comps||[]).filter(c=>c.area===area);
+    const al=(chks||[]).filter(c=>c.area===area);
+    if(!ac.length&&!al.length)return '';
+
+    const compsHtml=ac.length?`<div class="table-wrap" style="margin-bottom:8px"><table>
+      <thead><tr><th>Componente</th><th>Tipo</th><th style="text-align:right">Cant.</th><th>Unid.</th><th style="text-align:right">Peso</th><th style="min-width:120px">Avance</th><th>Estado</th><th>Responsable</th><th>Fin plan.</th><th></th></tr></thead>
+      <tbody>${ac.map(c=>`<tr>
+        <td><strong style="font-size:13px">${esc(c.nombre||'')}</strong>${c.descripcion?`<div style="font-size:11px;color:var(--muted)">${esc(c.descripcion)}</div>`:''}</td>
+        <td style="font-size:12px">${esc(c.tipo_componente||'—')}</td>
+        <td style="text-align:right;font-size:12px">${c.cantidad||'—'}</td>
+        <td style="font-size:12px">${esc(c.unidad||'—')}</td>
+        <td style="text-align:right;font-size:12px">${fmtNum(c.peso||0)}</td>
+        <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${(c.avance||0)>=80?'green':(c.avance||0)>=40?'':'amber'}" style="width:${c.avance||0}%"></div></div><span class="prog-pct">${c.avance||0}%</span></div></td>
+        <td><span class="badge ${SUBEST_BADGE[c.estado]||'pendiente'}">${esc(c.estado||'—')}</span></td>
+        <td style="font-size:12px">${esc(c.responsable||'—')}</td>
+        <td style="font-size:11px;color:var(--muted)">${fmtDate(c.fecha_fin_plan)}</td>
+        <td class="action-row">
+          ${c.link_documento?`<a class="icon-btn" href="${esc(c.link_documento)}" target="_blank">📎</a>`:''}
+          ${canEditHere?`<button class="icon-btn" onclick="openSubcompForm('${c.id}','${subId}')">✏️</button>`:''}
+          ${isCoord()?`<button class="icon-btn del" onclick="confirmDelete('subestacion_componentes','${c.id}')">🗑</button>`:''}
+        </td>
+      </tr>`).join('')}</tbody></table></div>`:'';
+
+    const chksHtml=al.length?`<div style="padding:10px;background:var(--bg);border-radius:8px;margin-top:4px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">CHECKLIST · ${al.length} ítems</div>
+      ${al.map(ch=>`<div style="padding:6px 0;border-bottom:0.5px dashed var(--border);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px">
+        <div style="flex:1;min-width:200px">
+          <span class="badge ${SUBCHK_BADGE[ch.estado]||'pendiente'}" style="font-size:10px;margin-right:6px">${esc(ch.estado||'—')}</span>
+          <strong>${esc(ch.item||'')}</strong>
+          ${ch.responsable?`<span style="color:var(--muted)"> · ${esc(ch.responsable)}</span>`:''}
+        </div>
+        <div style="font-size:11px;color:var(--muted);display:flex;gap:8px;align-items:center">
+          ${ch.fecha_planificada?'plan: '+fmtDate(ch.fecha_planificada):''}
+          ${ch.fecha_completado?' · real: '+fmtDate(ch.fecha_completado):''}
+          ${canEditHere?`<button class="icon-btn" onclick="openSubchkForm('${ch.id}','${subId}')">✏️</button>`:''}
+          ${isCoord()?`<button class="icon-btn del" onclick="confirmDelete('subestacion_checklist','${ch.id}')">🗑</button>`:''}
+        </div>
+      </div>`).join('')}
+    </div>`:'';
+
+    return `<div class="card" style="margin-bottom:1rem">
+      <div class="card-title">⚡ ${esc(area)}</div>
+      ${compsHtml||'<div style="font-size:12px;color:var(--muted);padding:4px 0">Sin componentes en esta área.</div>'}
+      ${chksHtml}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  document.getElementById('subest-areas').innerHTML=html||`<div class="empty">Aún no hay componentes ni checklist para esta subestación. Usa los botones superiores para empezar.</div>`;
+}
+
+// ─────────────────────  FORMULARIO COMPONENTE  ─────────────────────
+
+async function openSubcompForm(id=null, subId=null){
+  let c={};
+  if(id){
+    const{data}=await sb.from('subestacion_componentes').select('*').eq('id',id).single();
+    c=data||{};subId=c.subestacion_id;
+  }
+  const selArea=(v)=>`<select id="scf-area"><option value="">— Seleccionar —</option>${(app.lists['subest_area']||SUBEST_AREAS).map(o=>`<option${o===v?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  const selEst=(v)=>`<select id="scf-estado">${(app.lists['subest_estado']||['Pendiente','En ejecución','Completado','En pausa','Bloqueado','No aplica']).map(o=>`<option${o===(v||'Pendiente')?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+
+  document.getElementById('modal-subcomp-body').innerHTML=`
+    <h2>${id?'✏️ Editar componente técnico':'➕ Nuevo componente técnico'}</h2>
+    <div class="form-grid">
+      <div class="field"><label>Área *</label>${selArea(c.area||'')}</div>
+      <div class="field"><label>Tipo</label><input type="text" id="scf-tipo" value="${esc(c.tipo_componente||'')}" placeholder="Ej. Interruptor, Seccionador..."></div>
+      <div class="field full"><label>Nombre *</label><input type="text" id="scf-nombre" value="${esc(c.nombre||'')}"></div>
+      <div class="field full"><label>Descripción</label><textarea id="scf-desc" rows="2">${esc(c.descripcion||'')}</textarea></div>
+      <div class="field"><label>Cantidad</label><input type="number" step="0.01" id="scf-cant" value="${c.cantidad||''}"></div>
+      <div class="field"><label>Unidad</label><input type="text" id="scf-uni" value="${esc(c.unidad||'')}" placeholder="u, m, kg..."></div>
+      <div class="field"><label>Peso (ponderación)</label><input type="number" step="0.01" id="scf-peso" value="${c.peso||0}" min="0"></div>
+      <div class="field"><label>Avance %</label><input type="number" step="0.1" id="scf-avance" value="${c.avance||0}" min="0" max="100"></div>
+      <div class="field"><label>Estado</label>${selEst(c.estado)}</div>
+      <div class="field"><label>Responsable</label><input type="text" id="scf-resp" value="${esc(c.responsable||'')}"></div>
+      <div class="field"><label>Inicio plan.</label><input type="date" id="scf-finiplan" value="${c.fecha_inicio_plan||''}"></div>
+      <div class="field"><label>Fin plan.</label><input type="date" id="scf-ffinplan" value="${c.fecha_fin_plan||''}"></div>
+      <div class="field"><label>Inicio real</label><input type="date" id="scf-finireal" value="${c.fecha_inicio_real||''}"></div>
+      <div class="field"><label>Fin real</label><input type="date" id="scf-ffinreal" value="${c.fecha_fin_real||''}"></div>
+      <div class="field"><label>Link documento</label><input type="url" id="scf-doc" value="${esc(c.link_documento||'')}"></div>
+      <div class="field"><label>Orden</label><input type="number" id="scf-orden" value="${c.orden||0}"></div>
+      <div class="field full"><label>Observaciones</label><textarea id="scf-obs" rows="2">${esc(c.observaciones||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-subcomp')">Cancelar</button>
+      <button class="btn-primary" onclick="saveSubcomp('${id||''}','${subId}')">💾 Guardar</button>
+    </div>`;
+  openM('modal-subcomp');
+}
+
+async function saveSubcomp(id, subId){
+  const nombre=v('scf-nombre');
+  const area=v('scf-area');
+  if(!area)return toast('El área es obligatoria.',true);
+  if(!nombre)return toast('El nombre es obligatorio.',true);
+  const payload={
+    subestacion_id:subId,
+    area:area,
+    nombre:nombre,
+    descripcion:v('scf-desc')||null,
+    tipo_componente:v('scf-tipo')||null,
+    cantidad:numv('scf-cant'),
+    unidad:v('scf-uni')||null,
+    peso:numv('scf-peso')||0,
+    avance:numv('scf-avance')||0,
+    estado:v('scf-estado')||'Pendiente',
+    responsable:v('scf-resp')||null,
+    fecha_inicio_plan:v('scf-finiplan')||null,
+    fecha_fin_plan:v('scf-ffinplan')||null,
+    fecha_inicio_real:v('scf-finireal')||null,
+    fecha_fin_real:v('scf-ffinreal')||null,
+    link_documento:v('scf-doc')||null,
+    orden:parseInt(v('scf-orden'))||0,
+    observaciones:v('scf-obs')||null,
+    updated_at:new Date().toISOString()
+  };
+  const{error}=id
+    ?await sb.from('subestacion_componentes').update(payload).eq('id',id)
+    :await sb.from('subestacion_componentes').insert(payload);
+  if(error)return toast('Error: '+error.message,true);
+  closeM('modal-subcomp');toast(id?'Componente actualizado.':'Componente creado.');
+  openSubestDetail(subId);
+}
+
+// ─────────────────────  FORMULARIO CHECKLIST  ─────────────────────
+
+async function openSubchkForm(id=null, subId=null){
+  let c={};
+  if(id){
+    const{data}=await sb.from('subestacion_checklist').select('*').eq('id',id).single();
+    c=data||{};subId=c.subestacion_id;
+  }
+  const selArea=(v)=>`<select id="sckf-area"><option value="">— Seleccionar —</option>${(app.lists['subest_area']||SUBEST_AREAS).map(o=>`<option${o===v?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  const selEst=(v)=>`<select id="sckf-estado">${(app.lists['subest_chk_estado']||['Pendiente','En proceso','Completado','No aplica']).map(o=>`<option${o===(v||'Pendiente')?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+
+  document.getElementById('modal-subchk-body').innerHTML=`
+    <h2>${id?'✏️ Editar ítem de checklist':'➕ Nuevo ítem de checklist'}</h2>
+    <div class="form-grid">
+      <div class="field"><label>Área *</label>${selArea(c.area||'')}</div>
+      <div class="field"><label>Estado</label>${selEst(c.estado)}</div>
+      <div class="field full"><label>Ítem *</label><input type="text" id="sckf-item" value="${esc(c.item||'')}" placeholder="Descripción del ítem a verificar"></div>
+      <div class="field"><label>Responsable</label><input type="text" id="sckf-resp" value="${esc(c.responsable||'')}"></div>
+      <div class="field"><label>Orden</label><input type="number" id="sckf-orden" value="${c.orden||0}"></div>
+      <div class="field"><label>Fecha planificada</label><input type="date" id="sckf-fplan" value="${c.fecha_planificada||''}"></div>
+      <div class="field"><label>Fecha completado</label><input type="date" id="sckf-freal" value="${c.fecha_completado||''}"></div>
+      <div class="field full"><label>Observaciones</label><textarea id="sckf-obs" rows="2">${esc(c.observaciones||'')}</textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-ghost" onclick="closeM('modal-subchk')">Cancelar</button>
+      <button class="btn-primary" onclick="saveSubchk('${id||''}','${subId}')">💾 Guardar</button>
+    </div>`;
+  openM('modal-subchk');
+}
+
+async function saveSubchk(id, subId){
+  const area=v('sckf-area'),item=v('sckf-item');
+  if(!area)return toast('El área es obligatoria.',true);
+  if(!item)return toast('El ítem es obligatorio.',true);
+  const payload={
+    subestacion_id:subId,
+    area:area,
+    item:item,
+    estado:v('sckf-estado')||'Pendiente',
+    responsable:v('sckf-resp')||null,
+    fecha_planificada:v('sckf-fplan')||null,
+    fecha_completado:v('sckf-freal')||null,
+    observaciones:v('sckf-obs')||null,
+    orden:parseInt(v('sckf-orden'))||0,
+    updated_at:new Date().toISOString()
+  };
+  const{error}=id
+    ?await sb.from('subestacion_checklist').update(payload).eq('id',id)
+    :await sb.from('subestacion_checklist').insert(payload);
+  if(error)return toast('Error: '+error.message,true);
+  closeM('modal-subchk');toast(id?'Ítem actualizado.':'Ítem creado.');
+  openSubestDetail(subId);
+}
+
+// ─────────────────────  PDF TÉCNICO DE SUBESTACIÓN  ─────────────────────
+
+async function exportSubestPDF(subId){
+  toast('Generando PDF técnico...');
+  try{
+    await loadReportFields();
+    const{jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+
+    const[{data:se},{data:comps},{data:chks}]=await Promise.all([
+      sb.from('subestaciones').select('*,proyectos(id,nombre,codigo,naturaleza,departamento,municipio)').eq('id',subId).single(),
+      sb.from('subestacion_componentes').select('*').eq('subestacion_id',subId).order('area').order('orden'),
+      sb.from('subestacion_checklist').select('*').eq('subestacion_id',subId).order('area').order('orden')
+    ]);
+    if(!se){toast('No encontrada.',true);return;}
+
+    const show=(k)=>shouldPrintField('reporte_subestacion',k);
+    const proj=se.proyectos||{};
+
+    addPdfHeader(doc,'REPORTE TÉCNICO SUBESTACIÓN');
+    addPdfWatermark(doc,true);
+    doc.setTextColor(30);
+
+    doc.setFontSize(16);doc.setFont(undefined,'bold');
+    doc.text((se.nombre_subestacion||'').substring(0,70),15,34);
+    doc.setFont(undefined,'normal');doc.setFontSize(10);doc.setTextColor(100);
+    const subl=[se.tipo_intervencion||'',proj.nombre||'',proj.codigo||''].filter(Boolean).join(' · ');
+    if(subl)doc.text(subl,15,41);
+    doc.line(15,45,195,45);
+    doc.setTextColor(30);
+
+    let y=52;
+    const cfg=getReportConfig();
+    const[pr,pg,pb]=hexToRgb(cfg.primary);
+
+    const addSec=(t)=>{
+      if(y>260){doc.addPage();addPdfWatermark(doc,false);y=20;}
+      y+=2;
+      doc.setFontSize(11);doc.setFont(undefined,'bold');doc.setTextColor(pr,pg,pb);
+      doc.text(t,15,y);y+=2;
+      doc.setDrawColor(pr,pg,pb);doc.setLineWidth(0.3);doc.line(15,y,195,y);y+=5;
+      doc.setFont(undefined,'normal');doc.setTextColor(60);
+    };
+    const addRow=(l,val)=>{
+      if(val===null||val===undefined||val==='')return;
+      if(y>272){doc.addPage();addPdfWatermark(doc,false);y=20;}
+      doc.setFontSize(9);doc.setTextColor(115);doc.text(l+':',15,y);
+      doc.setTextColor(40);doc.text(String(val).substring(0,90),70,y);
+      y+=5;
+    };
+
+    if(show('datos_generales')){
+      addSec('Datos generales');
+      addRow('Proyecto',proj.nombre);
+      addRow('Código proyecto',proj.codigo);
+      addRow('Ubicación',[proj.departamento,proj.municipio].filter(Boolean).join(', '));
+      addRow('Tipo intervención',se.tipo_intervencion);
+      addRow('Configuración barra',se.configuracion_barra);
+      addRow('Tensión AT (kV)',se.nivel_tension_at);
+      addRow('Tensión MT (kV)',se.nivel_tension_mt);
+      addRow('Capacidad (MVA)',se.capacidad_mva);
+      addRow('Cantidad bahías',se.cantidad_bahias);
+      addRow('Cantidad transformadores',se.cantidad_transformadores);
+      addRow('Ubicación técnica',se.ubicacion_tecnica);
+      if(se.descripcion_general){
+        y+=1;doc.setFontSize(9);doc.setTextColor(60);
+        const ls=doc.splitTextToSize(se.descripcion_general,175);
+        ls.forEach(l=>{if(y>272){doc.addPage();addPdfWatermark(doc,false);y=20;}doc.text(l,15,y);y+=4.5;});
+      }
+      y+=2;
+    }
+
+    if(show('unifilar')){
+      const unis=[];
+      if(se.unifilar_actual_url)unis.push(['Unifilar actual',se.unifilar_actual_url]);
+      if(se.unifilar_propuesto_url)unis.push(['Unifilar propuesto',se.unifilar_propuesto_url]);
+      if(unis.length){
+        addSec('Unifilares');
+        unis.forEach(([l,u])=>{
+          if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+          doc.setFontSize(9);doc.setTextColor(115);doc.text(l+':',15,y);
+          doc.setTextColor(100,120,200);doc.textWithLink(u.substring(0,80),70,y,{url:u});y+=5;
+        });
+        y+=2;
+      }
+    }
+
+    if(show('imagenes')){
+      const imgs=[];
+      if(se.imagen_1_url)imgs.push(se.imagen_1_url);
+      if(se.imagen_2_url)imgs.push(se.imagen_2_url);
+      if(imgs.length){
+        addSec('Imágenes');
+        imgs.forEach(u=>{
+          if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+          doc.setTextColor(100,120,200);doc.textWithLink(u.substring(0,80),15,y,{url:u});y+=5;
+        });
+        doc.setTextColor(60);y+=2;
+      }
+    }
+
+    // Avances por área
+    if(show('avances')){
+      addSec('Avances por área');
+      const totalPeso=(comps||[]).reduce((s,c)=>s+(Number(c.peso)||0),0);
+      const pctTotal=totalPeso>0?((comps||[]).reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0)/totalPeso):0;
+      addRow('Avance total ponderado',(Math.round(pctTotal*10)/10)+'%');
+      SUBEST_AREAS.forEach(a=>{
+        const inA=(comps||[]).filter(c=>c.area===a);
+        if(!inA.length)return;
+        const pa=inA.reduce((s,c)=>s+(Number(c.peso)||0),0);
+        const av=pa>0?(inA.reduce((s,c)=>s+(Number(c.peso)||0)*(Number(c.avance)||0),0)/pa):0;
+        addRow(a,(Math.round(av*10)/10)+'% ('+inA.length+' comp)');
+      });
+      y+=2;
+    }
+
+    if(show('componentes')&&(comps||[]).length){
+      SUBEST_AREAS.forEach(area=>{
+        const arr=(comps||[]).filter(c=>c.area===area);
+        if(!arr.length)return;
+        addSec('Componentes · '+area);
+        arr.forEach(c=>{
+          if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+          doc.setFontSize(9);doc.setTextColor(40);
+          const line=`• ${(c.nombre||'').substring(0,40)} · ${c.estado||''} · ${c.avance||0}%${c.responsable?' · '+c.responsable:''}`;
+          doc.text(line,15,y);y+=4.5;
+        });
+        y+=2;
+      });
+    }
+
+    if(show('checklist')&&(chks||[]).length){
+      SUBEST_AREAS.forEach(area=>{
+        const arr=(chks||[]).filter(c=>c.area===area);
+        if(!arr.length)return;
+        addSec('Checklist · '+area);
+        arr.forEach(c=>{
+          if(y>265){doc.addPage();addPdfWatermark(doc,false);y=20;}
+          doc.setFontSize(9);doc.setTextColor(40);
+          const mark=c.estado==='Completado'?'✓':c.estado==='No aplica'?'—':'○';
+          const line=`${mark} ${(c.item||'').substring(0,60)} · ${c.estado||''}${c.responsable?' · '+c.responsable:''}`;
+          doc.text(line,15,y);y+=4.5;
+        });
+        y+=2;
+      });
+    }
+
+    if(show('observaciones')&&se.observaciones){
+      addSec('Observaciones');
+      const ls=doc.splitTextToSize(se.observaciones,175);
+      doc.setFontSize(9);doc.setTextColor(60);
+      ls.forEach(l=>{if(y>270){doc.addPage();addPdfWatermark(doc,false);y=20;}doc.text(l,15,y);y+=4.5;});
+    }
+
+    addPdfFooter(doc);
+    const fname=`subestacion_${(se.nombre_subestacion||'').replace(/[^a-z0-9]/gi,'_').toLowerCase()}.pdf`;
+    doc.save(fname);
+    toast('PDF generado.');
+  }catch(err){
+    console.error(err);
+    toast('Error generando PDF: '+(err.message||err),true);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════   FIN FASE 4   ═══════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Mini map se renderiza desde renderProjGeneral vía initMiniMap()

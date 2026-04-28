@@ -1611,7 +1611,12 @@ async function openAdqForm(id=null,proyId=null){
       <div class="field full"><label>Descripción</label><textarea id="af-desc">${esc(a.descripcion||'')}</textarea></div>
       <div class="field">
         <label>Tipo *</label>
-        ${selDyn('af-tipo', id ? a.tipo : '', 'tipo_adquisicion')}
+        <select id="af-tipo">
+          <option value="">— Seleccionar —</option>
+          <option value="contrato" ${(id ? a.tipo : '') === 'contrato' ? 'selected' : ''}>Contrato</option>
+          <option value="compra_directa" ${(id ? a.tipo : '') === 'compra_directa' ? 'selected' : ''}>Compra directa</option>
+        </select>
+
       </div>      
       <div class="field"><label>Estado</label><select id="af-estado"><option ${!a.estado||a.estado==='activo'?'selected':''}>activo</option><option ${a.estado==='cerrado'?'selected':''}>cerrado</option><option ${a.estado==='cancelado'?'selected':''}>cancelado</option></select></div>
       <div class="field"><label>Fondo entidad</label><select id="af-fondo_e"><option value="">—</option><option ${a.fondo_entidad==='ENEE'?'selected':''}>ENEE</option><option ${a.fondo_entidad==='UTCD'?'selected':''}>UTCD</option></select></div>

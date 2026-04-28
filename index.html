@@ -831,7 +831,7 @@ function renderProjAdqs(links,proyId,p){
       <thead><tr><th>Nombre</th><th>Tipo</th><th>SOLPED</th><th>Contrato</th><th>Empresa</th><th>Presupuesto</th><th>Estado</th><th>Links</th></tr></thead>
       <tbody>${adqs.map(a=>`<tr>
         <td><strong>${esc(a.nombre)}</strong></td>
-        <td><span class="badge ${a.tipo==='contrato'?'contrato':'compra_directa'}">${a.tipo==='contrato'?'Contrato':'Compra'}</span></td>
+       <td><span class="badge ${(a.tipo||'').toLowerCase().replace(/\s+/g,'_')}">${esc(a.tipo||'—')}</span></td>
         <td style="font-size:12px">${esc(a.solped_numero||'—')}</td>
         <td style="font-size:12px">${esc(a.contrato_consecutivo||'—')}</td>
         <td style="font-size:12px">${esc(a.contrato_empresa||'—')}</td>
@@ -1566,7 +1566,7 @@ async function renderAdquisiciones(){
   document.getElementById('main-content').innerHTML=`
     <div class="filter-bar">
       <input type="text" id="fa-search" placeholder="🔍 Buscar..." oninput="filterAdqs()" style="flex:1;min-width:160px">
-      <select id="fa-tipo" onchange="filterAdqs()"><option value="">Todos tipos</option><option>contrato</option><option>compra_directa</option></select>
+      <select id="fa-tipo" onchange="filterAdqs()"><option value="">Todos tipos</option>${(app.lists['tipo_adquisicion']||[]).map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select>
       <select id="fa-fondo" onchange="filterAdqs()"><option value="">Todos fondos</option><option>ENEE</option><option>UTCD</option></select>
     </div>
     <div class="table-wrap">
@@ -1581,7 +1581,7 @@ function renderAdqRows(as){
   if(!as.length)return`<tr><td colspan="11"><div class="empty">Sin adquisiciones.</div></td></tr>`;
   return as.map(a=>`<tr>
     <td><strong>${esc(a.nombre)}</strong>${a.descripcion?`<div style="font-size:11px;color:var(--muted)">${esc(a.descripcion.substring(0,40))}</div>`:''}</td>
-    <td><span class="badge ${a.tipo==='contrato'?'contrato':'compra_directa'}">${a.tipo==='contrato'?'Contrato':'Compra directa'}</span></td>
+    <td><span class="badge ${(a.tipo||'').toLowerCase().replace(/\s+/g,'_')}">${esc(a.tipo||'—')}</span></td>
     <td style="font-size:12px">${a.fondo_entidad||'—'}<br><span style="color:var(--muted)">${a.fondo_tipo||''}</span></td>
     <td style="font-size:12px">${esc(a.solped_numero||'—')}</td>
     <td style="font-size:12px">${esc(a.contrato_consecutivo||'—')}</td>
@@ -1611,13 +1611,7 @@ async function openAdqForm(id=null,proyId=null){
       <div class="field full"><label>Descripción</label><textarea id="af-desc">${esc(a.descripcion||'')}</textarea></div>
       <div class="field">
         <label>Tipo *</label>
-        <select id="af-tipo">
-          <option value="">— Seleccionar —</option>
-          <option value="contrato" ${(id ? a.tipo : '') === 'contrato' ? 'selected' : ''}>Contrato</option>
-          <option value="compra_directa" ${(id ? a.tipo : '') === 'compra_directa' ? 'selected' : ''}>Compra directa</option>
-        </select>
-
-      </div>      
+        ${selDyn('af-tipo', id ? a.tipo : '', 'tipo_adquisicion')}   
       <div class="field"><label>Estado</label><select id="af-estado"><option ${!a.estado||a.estado==='activo'?'selected':''}>activo</option><option ${a.estado==='cerrado'?'selected':''}>cerrado</option><option ${a.estado==='cancelado'?'selected':''}>cancelado</option></select></div>
       <div class="field"><label>Fondo entidad</label><select id="af-fondo_e"><option value="">—</option><option ${a.fondo_entidad==='ENEE'?'selected':''}>ENEE</option><option ${a.fondo_entidad==='UTCD'?'selected':''}>UTCD</option></select></div>
       <div class="field"><label>Tipo fondo</label><select id="af-fondo_t"><option value="">—</option><option ${a.fondo_tipo==='Gasto'?'selected':''}>Gasto</option><option ${a.fondo_tipo==='Inversión'?'selected':''}>Inversión</option></select></div>

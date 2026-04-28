@@ -306,7 +306,10 @@ function shadeColor(hex,pct){
 
 function selDyn(id,val,cat,ph='— Seleccionar —'){
   const opts=(app.lists[cat]||[]).map(o=>`<option value="${esc(o)}"${o===val?'selected':''}>${esc(o)}</option>`).join('');
-  return`<select id="${id}"><option value="">${ph}</option>${opts}</select>`;
+  return`<select id="${id}">
+  <option value="" ${!val ? 'selected' : ''}>${ph}</option>
+  ${opts}
+</select>`;
 }
 
 const isCoord=()=>app.profile?.role==='coordinador';

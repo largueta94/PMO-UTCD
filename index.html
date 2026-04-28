@@ -1606,7 +1606,10 @@ async function openAdqForm(id=null,proyId=null){
     <div class="form-grid">
       <div class="field full"><label>Nombre *</label>${inp('af-nombre',a.nombre,'text','Ej: Suministro transformadores')}</div>
       <div class="field full"><label>Descripción</label><textarea id="af-desc">${esc(a.descripcion||'')}</textarea></div>
-      <div class="field"><label>Tipo *</label><select id="af-tipo"><option value="">—</option><option ${a.tipo==='contrato'?'selected':''}>contrato</option><option ${a.tipo==='compra_directa'?'selected':''}>compra_directa</option></select></div>
+      <div class="field">
+        <label>Tipo *</label>
+        ${selDyn('af-tipo', a.tipo, 'tipo_adquisicion')}
+      </div>      
       <div class="field"><label>Estado</label><select id="af-estado"><option ${!a.estado||a.estado==='activo'?'selected':''}>activo</option><option ${a.estado==='cerrado'?'selected':''}>cerrado</option><option ${a.estado==='cancelado'?'selected':''}>cancelado</option></select></div>
       <div class="field"><label>Fondo entidad</label><select id="af-fondo_e"><option value="">—</option><option ${a.fondo_entidad==='ENEE'?'selected':''}>ENEE</option><option ${a.fondo_entidad==='UTCD'?'selected':''}>UTCD</option></select></div>
       <div class="field"><label>Tipo fondo</label><select id="af-fondo_t"><option value="">—</option><option ${a.fondo_tipo==='Gasto'?'selected':''}>Gasto</option><option ${a.fondo_tipo==='Inversión'?'selected':''}>Inversión</option></select></div>

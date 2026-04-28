@@ -76,6 +76,15 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 .badge.fotografico,.badge.compra_directa,.badge.compra{background:var(--tl);color:var(--tld)}
 .badge.identificado,.badge.pm{background:var(--bl);color:var(--bd)}
 .badge.coordinador{background:var(--pl);color:var(--pd)}.badge.lider{background:var(--gl);color:var(--gd)}
+.badge.adq-tipo{background:#EDEFF5;color:#4B5563}
+.badge.adq-tipo.licitación_privada{background:#E9E7FA;color:#534AB7}
+.badge.adq-tipo.licitación_pública{background:#E6F1FB;color:#185FA5}
+.badge.adq-tipo.compras_en_situación_de_calamidad{background:#FCEBEB;color:#A32D2D}
+.badge.adq-tipo.compras_por_emergencia_/_urgencia{background:#FAEEDA;color:#854F0B}
+.badge.adq-tipo.compra_directa{background:#E1F5EE;color:#0F6E56}
+.badge.adq-tipo.concurso_público{background:#EAF3DE;color:#3B6D11}
+.badge.adq-tipo.cotización{background:#F3E8FF;color:#6B21A8}
+
 .prog-wrap{display:flex;align-items:center;gap:8px}
 .prog-bar{flex:1;height:5px;background:var(--border);border-radius:4px;overflow:hidden;min-width:60px}
 .prog-fill{height:100%;border-radius:4px;background:var(--p);transition:width .3s}
@@ -87,7 +96,9 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 .tab-btn:hover:not(.active){color:var(--text)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 .form-grid .full{grid-column:1/-1}
-.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--border)}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--border)}
+.form-grid>.form-actions{grid-column:1/-1}
+.form-actions .btn-primary,.form-actions .btn-ghost{width:auto;min-height:auto;align-self:center}
 .modal-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:200;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto}
 .modal-wrap.open{display:flex}
 .modal{background:var(--card);border-radius:16px;width:100%;max-width:560px;padding:1.5rem;position:relative;margin:auto}

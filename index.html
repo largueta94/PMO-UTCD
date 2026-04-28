@@ -1608,7 +1608,7 @@ async function openAdqForm(id=null,proyId=null){
       <div class="field full"><label>Descripción</label><textarea id="af-desc">${esc(a.descripcion||'')}</textarea></div>
       <div class="field">
         <label>Tipo *</label>
-        ${selDyn('af-tipo', a.tipo, 'tipo_adquisicion')}
+        ${selDyn('af-tipo', id ? a.tipo : '', 'tipo_adquisicion')}
       </div>      
       <div class="field"><label>Estado</label><select id="af-estado"><option ${!a.estado||a.estado==='activo'?'selected':''}>activo</option><option ${a.estado==='cerrado'?'selected':''}>cerrado</option><option ${a.estado==='cancelado'?'selected':''}>cancelado</option></select></div>
       <div class="field"><label>Fondo entidad</label><select id="af-fondo_e"><option value="">—</option><option ${a.fondo_entidad==='ENEE'?'selected':''}>ENEE</option><option ${a.fondo_entidad==='UTCD'?'selected':''}>UTCD</option></select></div>
@@ -1640,7 +1640,7 @@ async function openAdqForm(id=null,proyId=null){
 
 async function saveAdq(id='',proyId=''){
   const nombre=v('af-nombre');if(!nombre.trim())return toast('El nombre es obligatorio.',true);
-  const payload={nombre,descripcion:v('af-desc'),tipo:v('af-tipo')||'contrato',estado:v('af-estado'),fondo_entidad:v('af-fondo_e')||null,fondo_tipo:v('af-fondo_t')||null,moneda:v('af-moneda'),presupuesto:numv('af-pres')||0,solped_numero:v('af-solped'),solped_fecha:v('af-fsolped')||null,link_proceso:v('af-link_proc')||null,contrato_consecutivo:v('af-cont_cons'),contrato_empresa:v('af-cont_emp'),contrato_monto:numv('af-cont_monto')||null,contrato_fecha_firma:v('af-cont_ffirma')||null,contrato_fecha_inicio:v('af-cont_fi')||null,contrato_fecha_fin:v('af-cont_ff')||null,link_contrato:v('af-link_cont')||null,updated_at:new Date().toISOString()};
+  const payload={nombre,descripcion:v('af-desc'),tipo: v('af-tipo'),estado:v('af-estado'),fondo_entidad:v('af-fondo_e')||null,fondo_tipo:v('af-fondo_t')||null,moneda:v('af-moneda'),presupuesto:numv('af-pres')||0,solped_numero:v('af-solped'),solped_fecha:v('af-fsolped')||null,link_proceso:v('af-link_proc')||null,contrato_consecutivo:v('af-cont_cons'),contrato_empresa:v('af-cont_emp'),contrato_monto:numv('af-cont_monto')||null,contrato_fecha_firma:v('af-cont_ffirma')||null,contrato_fecha_inicio:v('af-cont_fi')||null,contrato_fecha_fin:v('af-cont_ff')||null,link_contrato:v('af-link_cont')||null,updated_at:new Date().toISOString()};
   let adqId=id,error;
   if(id){({error}=await sb.from('adquisiciones').update(payload).eq('id',id));}
   else{const{data:ins,error:err}=await sb.from('adquisiciones').insert(payload).select().single();error=err;adqId=ins?.id;}

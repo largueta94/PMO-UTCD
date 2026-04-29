@@ -74,6 +74,12 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 .badge.riesgo,.badge.pendiente,.badge.rechazado,.badge.vencido,.badge.materializado,.badge.enriesgo{background:var(--rl);color:var(--rd)}
 .badge.pausado,.badge.proceso,.badge.en_proceso,.badge.entramite,.badge.enseguimiento,.badge.contrato,.badge.con_reporte{background:var(--al);color:var(--ad)}
 .badge.fotografico,.badge.compra_directa,.badge.compra{background:var(--tl);color:var(--tld)}
+.badge.licitacion_publica{background:var(--bl);color:var(--bd)}
+.badge.licitacion_privada{background:var(--pl);color:var(--pd)}
+.badge.cotizacion{background:var(--tl);color:var(--tld)}
+.badge.concurso_publico{background:var(--al);color:var(--ad)}
+.badge.emergencia_urgencia{background:var(--rl);color:var(--rd)}
+.badge.situacion_calamidad{background:#EEEDEA;color:#4D4B45}
 .badge.identificado,.badge.pm{background:var(--bl);color:var(--bd)}
 .badge.coordinador{background:var(--pl);color:var(--pd)}.badge.lider{background:var(--gl);color:var(--gd)}
 .prog-wrap{display:flex;align-items:center;gap:8px}
@@ -804,6 +810,31 @@ function renderUpdatesTab(updates,proyId,p){
       </tr>`).join('')}</tbody>
     </table></div>`:`<div class="empty">Sin actualizaciones para este proyecto.</div>`}`;
 }
+const ADQ_TIPOS=[
+  {value:'licitacion_publica',label:'Licitación pública'},
+  {value:'licitacion_privada',label:'Licitación privada'},
+  {value:'cotizacion',label:'Cotización'},
+  {value:'concurso_publico',label:'Concurso público'},
+  {value:'compra_directa',label:'Compra directa'},
+  {value:'emergencia_urgencia',label:'Emergencia / Urgencia'},
+  {value:'situacion_calamidad',label:'Situación de calamidad'}
+];
+
+function adqTipoLabel(tipo){
+  return (ADQ_TIPOS.find(t=>t.value===tipo)||{}).label||(tipo==='contrato'?'Contrato':tipo||'—');
+}
+
+function adqTipoClass(tipo){
+  return ADQ_TIPOS.some(t=>t.value===tipo)?tipo:(tipo==='contrato'?'contrato':'compra_directa');
+}
+
+function adqTipoBadge(tipo){
+  return `<span class="badge ${adqTipoClass(tipo)}">${esc(adqTipoLabel(tipo))}</span>`;
+}
+
+function adqTipoOptions(selected='',all=false){
+  return `${all?'<option value="">Todos tipos</option>':'<option value="">—</option>'}${ADQ_TIPOS.map(t=>`<option value="${t.value}" ${selected===t.value?'selected':''}>${t.label}</option>`).join('')}`;
+}
 
 function renderProjAdqs(links,proyId,p){
   const adqs=(links||[]).map(l=>l.adquisiciones).filter(Boolean);
@@ -812,7 +843,7 @@ function renderProjAdqs(links,proyId,p){
       <thead><tr><th>Nombre</th><th>Tipo</th><th>SOLPED</th><th>Contrato</th><th>Empresa</th><th>Presupuesto</th><th>Estado</th><th>Links</th></tr></thead>
       <tbody>${adqs.map(a=>`<tr>
         <td><strong>${esc(a.nombre)}</strong></td>
-        <td><span class="badge ${a.tipo==='contrato'?'contrato':'compra_directa'}">${a.tipo==='contrato'?'Contrato':'Compra'}</span></td>
+        <td>${adqTipoBadge(a.tipo)}</td>
         <td style="font-size:12px">${esc(a.solped_numero||'—')}</td>
         <td style="font-size:12px">${esc(a.contrato_consecutivo||'—')}</td>
         <td style="font-size:12px">${esc(a.contrato_empresa||'—')}</td>
@@ -1547,7 +1578,7 @@ async function renderAdquisiciones(){
   document.getElementById('main-content').innerHTML=`
     <div class="filter-bar">
       <input type="text" id="fa-search" placeholder="🔍 Buscar..." oninput="filterAdqs()" style="flex:1;min-width:160px">
-      <select id="fa-tipo" onchange="filterAdqs()"><option value="">Todos tipos</option><option>contrato</option><option>compra_directa</option></select>
+      <select id="fa-tipo" onchange="filterAdqs()">${adqTipoOptions('',true)}</select>
       <select id="fa-fondo" onchange="filterAdqs()"><option value="">Todos fondos</option><option>ENEE</option><option>UTCD</option></select>
     </div>
     <div class="table-wrap">
@@ -1562,7 +1593,7 @@ function renderAdqRows(as){
   if(!as.length)return`<tr><td colspan="11"><div class="empty">Sin adquisiciones.</div></td></tr>`;
   return as.map(a=>`<tr>
     <td><strong>${esc(a.nombre)}</strong>${a.descripcion?`<div style="font-size:11px;color:var(--muted)">${esc(a.descripcion.substring(0,40))}</div>`:''}</td>
-    <td><span class="badge ${a.tipo==='contrato'?'contrato':'compra_directa'}">${a.tipo==='contrato'?'Contrato':'Compra directa'}</span></td>
+   <td>${adqTipoBadge(a.tipo)}</td>
     <td style="font-size:12px">${a.fondo_entidad||'—'}<br><span style="color:var(--muted)">${a.fondo_tipo||''}</span></td>
     <td style="font-size:12px">${esc(a.solped_numero||'—')}</td>
     <td style="font-size:12px">${esc(a.contrato_consecutivo||'—')}</td>
@@ -1590,7 +1621,7 @@ async function openAdqForm(id=null,proyId=null){
     <div class="form-grid">
       <div class="field full"><label>Nombre *</label>${inp('af-nombre',a.nombre,'text','Ej: Suministro transformadores')}</div>
       <div class="field full"><label>Descripción</label><textarea id="af-desc">${esc(a.descripcion||'')}</textarea></div>
-      <div class="field"><label>Tipo *</label><select id="af-tipo"><option value="">—</option><option ${a.tipo==='contrato'?'selected':''}>contrato</option><option ${a.tipo==='compra_directa'?'selected':''}>compra_directa</option></select></div>
+      <div class="field"><label>Tipo *</label><select id="af-tipo">${adqTipoOptions(a.tipo)}</select></div>
       <div class="field"><label>Estado</label><select id="af-estado"><option ${!a.estado||a.estado==='activo'?'selected':''}>activo</option><option ${a.estado==='cerrado'?'selected':''}>cerrado</option><option ${a.estado==='cancelado'?'selected':''}>cancelado</option></select></div>
       <div class="field"><label>Fondo entidad</label><select id="af-fondo_e"><option value="">—</option><option ${a.fondo_entidad==='ENEE'?'selected':''}>ENEE</option><option ${a.fondo_entidad==='UTCD'?'selected':''}>UTCD</option></select></div>
       <div class="field"><label>Tipo fondo</label><select id="af-fondo_t"><option value="">—</option><option ${a.fondo_tipo==='Gasto'?'selected':''}>Gasto</option><option ${a.fondo_tipo==='Inversión'?'selected':''}>Inversión</option></select></div>
@@ -1621,7 +1652,7 @@ async function openAdqForm(id=null,proyId=null){
 
 async function saveAdq(id='',proyId=''){
   const nombre=v('af-nombre');if(!nombre.trim())return toast('El nombre es obligatorio.',true);
-  const payload={nombre,descripcion:v('af-desc'),tipo:v('af-tipo')||'contrato',estado:v('af-estado'),fondo_entidad:v('af-fondo_e')||null,fondo_tipo:v('af-fondo_t')||null,moneda:v('af-moneda'),presupuesto:numv('af-pres')||0,solped_numero:v('af-solped'),solped_fecha:v('af-fsolped')||null,link_proceso:v('af-link_proc')||null,contrato_consecutivo:v('af-cont_cons'),contrato_empresa:v('af-cont_emp'),contrato_monto:numv('af-cont_monto')||null,contrato_fecha_firma:v('af-cont_ffirma')||null,contrato_fecha_inicio:v('af-cont_fi')||null,contrato_fecha_fin:v('af-cont_ff')||null,link_contrato:v('af-link_cont')||null,updated_at:new Date().toISOString()};
+  const payload={nombre,descripcion:v('af-desc'),tipo:v('af-tipo')||'licitacion_publica',estado:v('af-estado'),fondo_entidad:v('af-fondo_e')||null,fondo_tipo:v('af-fondo_t')||null,moneda:v('af-moneda'),presupuesto:numv('af-pres')||0,solped_numero:v('af-solped'),solped_fecha:v('af-fsolped')||null,link_proceso:v('af-link_proc')||null,contrato_consecutivo:v('af-cont_cons'),contrato_empresa:v('af-cont_emp'),contrato_monto:numv('af-cont_monto')||null,contrato_fecha_firma:v('af-cont_ffirma')||null,contrato_fecha_inicio:v('af-cont_fi')||null,contrato_fecha_fin:v('af-cont_ff')||null,link_contrato:v('af-link_cont')||null,updated_at:new Date().toISOString()};
   let adqId=id,error;
   if(id){({error}=await sb.from('adquisiciones').update(payload).eq('id',id));}
   else{const{data:ins,error:err}=await sb.from('adquisiciones').insert(payload).select().single();error=err;adqId=ins?.id;}

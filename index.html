@@ -123,22 +123,6 @@ tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--bg)}
 .perm-dot.entramite{background:var(--ad)}.perm-dot.rechazado,.perm-dot.vencido{background:var(--rd)}
 @media(max-width:768px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.metric-grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}}
 </style>
-<!-- PWA -->
-<link rel="manifest" href="/manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="PMO SGP">
-<link rel="apple-touch-icon" href="/icon-apple.png">
-<meta name="theme-color" content="#7F77DD">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(r => console.log('SW OK:', r.scope))
-        .catch(e => console.warn('SW error:', e));
-    });
-  }
-</script>
 </head>
 <body>
 <div class="toast" id="toast"></div>
